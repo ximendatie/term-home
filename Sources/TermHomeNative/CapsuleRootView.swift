@@ -202,28 +202,11 @@ struct CapsuleRootView: View {
 
     /// 构建靠两侧安全区分布的头部，直接复用参考仓库的单行槽位思路。
     private var headerRow: some View {
-        HStack(spacing: 0) {
+        ZStack {
             if store.isExpanded {
-                headerLeading
-                    .frame(width: 20, alignment: .leading)
-                    .padding(.leading, 8)
+                expandedHeaderRow
             } else {
-                compactLeadingSlot
-            }
-
-            if store.isExpanded {
-                Spacer(minLength: 0)
-            } else {
-                headerCompactCenter
-                    .frame(width: compactCenterWidth)
-            }
-
-            if store.isExpanded {
-                headerTrailing
-                    .frame(width: 20, alignment: .trailing)
-                    .padding(.trailing, 8)
-            } else {
-                compactTrailingSlot
+                compactHeaderRow
             }
         }
         .frame(height: compactHeight)
@@ -231,18 +214,34 @@ struct CapsuleRootView: View {
 
     /// 渲染左上角的品牌和状态元素。
     private var headerLeading: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "terminal.fill")
-                .font(.system(size: store.isExpanded ? 12 : 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.95))
-                .matchedGeometryEffect(id: "header-terminal-icon", in: headerNamespace)
+        Image(systemName: "terminal.fill")
+            .font(.system(size: store.isExpanded ? 12 : 11, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.95))
+            .matchedGeometryEffect(id: "header-terminal-icon", in: headerNamespace)
+    }
 
-            if store.isExpanded {
-                Circle()
-                    .fill(store.phase.color)
-                    .frame(width: 8, height: 8)
-                    .matchedGeometryEffect(id: "header-phase-indicator-left", in: headerNamespace)
-            }
+    /// 收起态头部，提供共享几何动画的起点位置。
+    private var compactHeaderRow: some View {
+        HStack(spacing: 0) {
+            compactLeadingSlot
+            headerCompactCenter
+                .frame(width: compactCenterWidth)
+            compactTrailingSlot
+        }
+    }
+
+    /// 展开态头部，提供共享几何动画的终点位置。
+    private var expandedHeaderRow: some View {
+        HStack(spacing: 0) {
+            headerLeading
+                .frame(width: 20, alignment: .leading)
+                .padding(.leading, 8)
+
+            Spacer(minLength: 0)
+
+            headerTrailing
+                .frame(width: 20, alignment: .trailing)
+                .padding(.trailing, 8)
         }
     }
 
