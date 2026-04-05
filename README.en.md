@@ -154,15 +154,58 @@ And where macOS can surface that cleanly in one place.
 
 ---
 
-## MVP status (incremental update)
+## MVP roadmap
 
-Without changing the plan above, a runnable Core MVP has now been added for fast validation:
+The repository already contains a runnable Core prototype for validating the event model and the basic interaction loop:
 
 - `app.py`: unified event bus service (`POST /events`, `GET /tasks`, `GET /stream`, `POST /tasks/{id}/actions`).
 - `web/`: notch-style top-layer web prototype with human action buttons.
-- `openspec/`: initialized spec-coding workspace (`spec.md / plan.md / tasks.md`).
+- `openspec/`: spec, plan, and task breakdown.
 
-### Run
+This build is useful for fast validation, but it is not the final definition of the MVP.  
+For `term-home`, the real MVP should be a small but genuinely usable native macOS top-layer app.
+
+### Version 1 (Native MVP)
+
+Version 1 stays intentionally narrow:
+
+- a native macOS resident app
+- a top capsule / notch-like collapsed state
+- a simple expanded panel on click
+- a single active-task view
+- only the core states: `running`, `awaiting_approval`, `completed`, `failed`
+- only the core actions: `approve`, `reject`, `retry`
+- one real CLI / Agent integration
+- minimal local state plus a few recent tasks
+
+The goal is not feature breadth. The goal is to be:
+
+- native instead of browser-based
+- always present at the top of macOS
+- useful in one real workflow
+
+### Version 2 (Enhanced)
+
+Only after V1 is stable:
+
+- multi-task list and switching
+- recent task history and more detail
+- log preview and jump back to terminal
+- system notification integration
+- launch at login and basic settings
+- multiple CLI / Agent integrations
+- refined motion and interaction details
+
+### Explicitly out of scope for V1
+
+- music controls, calendar, file shelf, or other desktop utility features
+- HUD replacement
+- complex plugin systems
+- XPC helper and heavier system extensions
+- deep compatibility work for multi-display, lock screen, and fullscreen
+- a full conversation history viewer
+
+### Run the current prototype
 
 ```bash
 python3 app.py
