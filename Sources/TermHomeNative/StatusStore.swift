@@ -204,6 +204,20 @@ final class StatusStore: ObservableObject {
         currentTaskID != nil
     }
 
+    /// 根据当前状态返回更贴近留海形态的首选窗口尺寸。
+    var preferredPanelSize: NSSize {
+        if !isExpanded {
+            return NSSize(width: 320, height: 36)
+        }
+
+        let taskCount = min(recentTasks.count, 3)
+        let recentTasksHeight = CGFloat(taskCount) * 42
+        let actionsHeight: CGFloat = hasActiveTask ? 56 : 0
+        let baseHeight: CGFloat = 150
+        let totalHeight = baseHeight + recentTasksHeight + actionsHeight
+        return NSSize(width: 480, height: max(320, totalHeight))
+    }
+
     /// 连接事件总线、维持 SSE 长连接，并在断开后自动重试。
     private func connect() {
         streamTask = Task { [weak self] in
@@ -233,6 +247,7 @@ final class StatusStore: ObservableObject {
     /// 将总线返回的完整快照应用到当前界面状态。
     private func applySnapshot(_ snapshot: TasksSnapshot) {
         recentTasks = Array(snapshot.tasks.prefix(3))
+        onLayoutChange?()
 
         if let current = snapshot.tasks.first {
             applyCurrentTask(current)
@@ -270,6 +285,7 @@ final class StatusStore: ObservableObject {
         var tasks = recentTasks.filter { $0.taskID != task.taskID }
         tasks.insert(task, at: 0)
         recentTasks = Array(tasks.sorted { $0.updatedAt > $1.updatedAt }.prefix(3))
+        onLayoutChange?()
 
         if recentTasks.first?.taskID == task.taskID {
             applyCurrentTask(task)
@@ -291,6 +307,7 @@ final class StatusStore: ObservableObject {
         phase = .idle
         title = "term-home"
         summary = "Event bus offline at http://127.0.0.1:8765."
+        onLayoutChange?()
     }
 
     /// 向总线发送动作，并由后续实时流更新界面状态。
