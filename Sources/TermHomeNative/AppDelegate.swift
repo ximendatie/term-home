@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 管理原生应用生命周期，并负责顶部全宽窗口与岛体命中区域。
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let store = StatusStore()
     private var panel: TopCapsulePanel?
     private var hostingView: PassThroughHostingView<CapsuleRootView>?
@@ -28,12 +28,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.panel = panel
         self.hostingView = hostingView
 
+        panel.delegate = self
         hostingView.frame = NSRect(origin: .zero, size: windowFrame.size)
         panel.contentView = hostingView
         panel.setFrame(windowFrame, display: true)
 
         store.onLayoutChange = { [weak self] in
             self?.updateHitTestRect()
+            self?.syncPanelActivation()
         }
 
         screenObserver = NotificationCenter.default.addObserver(
@@ -88,5 +90,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let y = bounds.height - islandSize.height
             return CGRect(x: x, y: y, width: islandSize.width, height: islandSize.height)
         }
+    }
+
+    /// 在展开和收起之间同步面板焦点，让失焦收起可以稳定触发。
+    private func syncPanelActivation() {
+        guard let panel else { return }
+
+        if store.isExpanded {
+            panel.orderFrontRegardless()
+            panel.makeKey()
+        } else {
+            panel.orderFrontRegardless()
+        }
+    }
+
+    /// 在面板失去焦点时自动收起，保持与参考实现一致的交互模型。
+    func windowDidResignKey(_ notification: Notification) {
+        store.collapse()
     }
 }

@@ -178,7 +178,21 @@ final class StatusStore: ObservableObject {
         streamTask?.cancel()
     }
 
-    /// 切换胶囊展开状态，并通知窗口重新布局。
+    /// 展开胶囊，并通知窗口重新布局。
+    func expand() {
+        guard !isExpanded else { return }
+        isExpanded = true
+        onLayoutChange?()
+    }
+
+    /// 收起胶囊，并通知窗口重新布局。
+    func collapse() {
+        guard isExpanded else { return }
+        isExpanded = false
+        onLayoutChange?()
+    }
+
+    /// 在需要时切换胶囊展开状态，并通知窗口重新布局。
     func toggleExpanded() {
         isExpanded.toggle()
         onLayoutChange?()

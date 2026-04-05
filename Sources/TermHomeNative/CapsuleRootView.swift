@@ -162,7 +162,9 @@ struct CapsuleRootView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            store.toggleExpanded()
+            if !store.isExpanded {
+                store.expand()
+            }
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.84), value: store.isExpanded)
         .animation(.smooth, value: store.phase)
@@ -172,13 +174,17 @@ struct CapsuleRootView: View {
     /// 构建靠两侧安全区分布的头部，避免把内容压到留海中央。
     private var headerRow: some View {
         HStack(spacing: 0) {
-            headerLeading
-            Spacer(minLength: 0)
             if !store.isExpanded {
+                compactLeadingSlot
+                Spacer(minLength: 0)
                 headerCompactCenter
                 Spacer(minLength: 0)
+                compactTrailingSlot
+            } else {
+                headerLeading
+                Spacer(minLength: 0)
+                headerTrailing
             }
-            headerTrailing
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.top, store.isExpanded ? 11 : 8)
@@ -200,32 +206,64 @@ struct CapsuleRootView: View {
         }
     }
 
-    /// 渲染收起态中间的轻量状态提示，避免岛体存在感过弱。
-    private var headerCompactCenter: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(store.phase.color)
-                .frame(width: 8, height: 8)
+    /// 为收起态左侧保留稳定宽度，让中间状态槽更像岛体本体的一部分。
+    private var compactLeadingSlot: some View {
+        headerLeading
+            .frame(width: 44, alignment: .leading)
+    }
 
-            Text(store.phase == .idle ? "term-home" : store.phase.label)
+    /// 为收起态右侧保留稳定宽度，让中间状态槽保持居中。
+    private var compactTrailingSlot: some View {
+        headerTrailing
+            .frame(width: 44, alignment: .trailing)
+    }
+
+    /// 渲染收起态中间的状态槽，强化“灵动岛存在”而不是普通小控件。
+    private var headerCompactCenter: some View {
+        HStack(spacing: 10) {
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.06),
+                            Color.white.opacity(0.015)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 74, height: 16)
+                .overlay(alignment: .leading) {
+                    Circle()
+                        .fill(store.phase.color)
+                        .frame(width: 8, height: 8)
+                        .padding(.leading, 5)
+                }
+
+            Text(store.phase == .idle ? "Idle" : store.phase.label)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .foregroundStyle(.white.opacity(0.52))
                 .lineLimit(1)
         }
+        .padding(.horizontal, 10)
+        .frame(height: 22)
+        .background(Color.white.opacity(0.03))
+        .overlay {
+            Capsule()
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        }
+        .clipShape(Capsule())
     }
 
     /// 渲染右上角的控制元素，保持与参考实现相同的角落占位思路。
     private var headerTrailing: some View {
-        HStack(spacing: 12) {
-            if store.isExpanded {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.72))
+        Group {
+            if !store.isExpanded {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .frame(width: 16, height: 16)
             }
-
-            Image(systemName: store.isExpanded ? "xmark" : "chevron.down")
-                .font(.system(size: store.isExpanded ? 11 : 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.82))
         }
     }
 
