@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""term-home core MVP
+"""term-home 原生 MVP 的本地事件总线。
 
-A minimal local runtime that implements:
-- unified CLI/Agent event bus (HTTP ingest)
-- task state normalization
-- SSE stream for UI updates
-- simple notch-like top status web UI
+这个模块刻意保持很小的运行时边界：
+- 通过 HTTP 接收结构化任务事件
+- 将事件归一化为任务状态快照
+- 通过 JSON 和 SSE 对外暴露任务状态
+- 接收少量用户动作并回写成任务状态变化
 """
 
 from __future__ import annotations
@@ -37,6 +37,8 @@ VALID_ACTIONS = {"stop", "retry", "approve", "reject"}
 
 @dataclass
 class TaskState:
+    """单个任务的归一化运行时视图。"""
+
     task_id: str
     source: str = "unknown"
     status: str = "running"
@@ -48,18 +50,23 @@ class TaskState:
 
 
 class EventBus:
+    """带 SSE 分发能力的线程安全内存任务存储。"""
+
     def __init__(self) -> None:
+        """初始化任务存储、历史缓冲区和订阅者列表。"""
         self._lock = threading.Lock()
         self._tasks: dict[str, TaskState] = {}
         self._history: list[dict[str, Any]] = []
         self._subscribers: list[queue.Queue[str]] = []
 
     def snapshot(self) -> dict[str, Any]:
+        """返回按最近更新时间排序的稳定任务快照。"""
         with self._lock:
             tasks = [asdict(t) for t in sorted(self._tasks.values(), key=lambda x: x.updated_at, reverse=True)]
             return {"tasks": tasks, "history_size": len(self._history)}
 
     def publish(self, event: dict[str, Any]) -> None:
+        """校验输入事件、折叠进任务状态并广播给订阅者。"""
         event_type = event.get("type")
         task_id = event.get("task_id")
         if event_type not in VALID_EVENT_TYPES:
@@ -110,16 +117,19 @@ class EventBus:
                 sub.put(payload)
 
     def subscribe(self) -> queue.Queue[str]:
+        """为一个已连接客户端创建 SSE 订阅队列。"""
         q: queue.Queue[str] = queue.Queue()
         with self._lock:
             self._subscribers.append(q)
         return q
 
     def unsubscribe(self, q: queue.Queue[str]) -> None:
+        """在客户端断开后移除对应的 SSE 订阅队列。"""
         with self._lock:
             self._subscribers = [x for x in self._subscribers if x is not q]
 
     def action(self, task_id: str, action: str) -> dict[str, Any]:
+        """将用户动作转换成一条合成任务事件。"""
         if action not in VALID_ACTIONS:
             raise ValueError(f"unsupported action: {action}")
 
@@ -148,9 +158,12 @@ BUS = EventBus()
 
 
 class Handler(BaseHTTPRequestHandler):
+    """提供健康检查、任务读取、事件写入和 SSE 的 HTTP 接口。"""
+
     server_version = "term-home/0.1"
 
     def _json(self, status: int, data: dict[str, Any]) -> None:
+        """按给定状态码写出 JSON 响应。"""
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -159,11 +172,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _read_json(self) -> dict[str, Any]:
+        """将请求体解析为 JSON，并在空请求体时返回空对象。"""
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) if length else b"{}"
         return json.loads(raw.decode("utf-8") or "{}")
 
     def do_GET(self) -> None:  # noqa: N802
+        """处理健康检查、任务快照和 SSE 读取请求。"""
         p = urlparse(self.path)
         if p.path == "/health":
             self._json(200, {"ok": True, "service": "term-home"})
@@ -198,6 +213,7 @@ class Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not_found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        """接收任务事件以及来自界面的任务动作。"""
         p = urlparse(self.path)
         try:
             body = self._read_json()
@@ -233,6 +249,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    """在默认回环地址上启动本地 HTTP 事件总线。"""
     host, port = "127.0.0.1", 8765
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"term-home core listening on http://{host}:{port}")

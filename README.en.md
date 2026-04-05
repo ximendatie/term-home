@@ -206,6 +206,12 @@ Only after V1 is stable:
 - deep compatibility work for multi-display, lock screen, and fullscreen
 - a full conversation history viewer
 
+### Development rules
+
+- Every new code module must include a brief module-level description.
+- Every new function, method, and important constructor entry point must include a concise function-level comment.
+- Comments should explain responsibility and boundaries, not restate obvious syntax line by line.
+
 ### Run the current prototype
 
 Event bus:
@@ -232,7 +238,7 @@ What the native shell already has:
 
 - a top capsule form
 - a clickable expanded detail panel
-- live polling from `app.py`
+- live SSE-based status updates
 - native action buttons that post back to the local bus
 - a short recent-task list and disconnect fallback
 

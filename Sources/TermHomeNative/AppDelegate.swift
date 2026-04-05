@@ -1,12 +1,14 @@
 import AppKit
 import SwiftUI
 
+/// 管理原生应用生命周期，并负责顶部胶囊窗口的定位。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = StatusStore()
     private var panel: TopCapsulePanel?
     private var screenObserver: Any?
 
+    /// 启动常驻应用，绑定状态存储与窗口，并显示顶部胶囊。
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
@@ -31,12 +33,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.orderFrontRegardless()
     }
 
+    /// 在应用退出前移除屏幕变化观察者。
     func applicationWillTerminate(_ notification: Notification) {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
     }
 
+    /// 根据当前屏幕和展开状态重新计算胶囊窗口位置与尺寸。
     private func layoutPanel(animated: Bool) {
         guard let panel else { return }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }

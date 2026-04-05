@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Codex CLI and bridge its lifecycle into the local term-home event bus."""
+"""运行 Codex CLI，并将其生命周期桥接到本地 term-home 事件总线。"""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ DEFAULT_BUS_URL = "http://127.0.0.1:8765"
 
 
 def parse_args() -> argparse.Namespace:
+    """解析桥接脚本参数以及需要转发给 `codex exec` 的附加参数。"""
     parser = argparse.ArgumentParser(
         description="Run `codex exec` and publish lifecycle events to the local term-home bus."
     )
@@ -53,6 +54,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def post_event(bus_url: str, payload: dict[str, Any]) -> None:
+    """向本地 term-home 总线发送一条归一化任务事件。"""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(
         f"{bus_url.rstrip('/')}/events",
@@ -68,6 +70,7 @@ def post_event(bus_url: str, payload: dict[str, Any]) -> None:
 
 
 def summarize_line(line: str) -> str:
+    """将原始输出裁剪成适合界面展示的摘要长度。"""
     line = line.strip()
     if not line:
         return ""
@@ -77,6 +80,7 @@ def summarize_line(line: str) -> str:
 
 
 def build_codex_command(args: argparse.Namespace, output_file: str) -> list[str]:
+    """为当前执行组装完整的 `codex exec` 命令。"""
     cmd = ["codex", "exec", "--json", "-o", output_file]
     if args.model:
         cmd.extend(["--model", args.model])
@@ -96,6 +100,7 @@ def build_codex_command(args: argparse.Namespace, output_file: str) -> list[str]
 
 
 def handle_json_event(bus_url: str, task_id: str, title: str, event: dict[str, Any]) -> None:
+    """将一条 Codex JSONL 事件映射成 term-home 的任务语义。"""
     event_type = event.get("type")
     if event_type == "thread.started":
         post_event(
@@ -119,6 +124,67 @@ def handle_json_event(bus_url: str, task_id: str, title: str, event: dict[str, A
                 "source": "codex-cli",
                 "title": title,
                 "summary": "Codex turn started",
+            },
+        )
+        return
+
+    if event_type == "item.started":
+        item = event.get("item") or {}
+        item_type = str(item.get("type", "item"))
+        post_event(
+            bus_url,
+            {
+                "type": "task.progress",
+                "task_id": task_id,
+                "source": "codex-cli",
+                "title": title,
+                "summary": f"Codex started {item_type}",
+            },
+        )
+        return
+
+    if event_type == "item.completed":
+        item = event.get("item") or {}
+        item_type = str(item.get("type", "item"))
+
+        if item_type == "agent_message":
+            text = summarize_line(str(item.get("text", "Agent message received.")))
+            post_event(
+                bus_url,
+                {
+                    "type": "task.summary",
+                    "task_id": task_id,
+                    "source": "codex-cli",
+                    "title": title,
+                    "summary": text or "Agent message received.",
+                },
+            )
+            return
+
+        post_event(
+            bus_url,
+            {
+                "type": "task.progress",
+                "task_id": task_id,
+                "source": "codex-cli",
+                "title": title,
+                "summary": f"Codex completed {item_type}",
+            },
+        )
+        return
+
+    if event_type == "turn.completed":
+        usage = event.get("usage") or {}
+        output_tokens = usage.get("output_tokens")
+        token_suffix = f" ({output_tokens} output tokens)" if output_tokens else ""
+        post_event(
+            bus_url,
+            {
+                "type": "task.progress",
+                "task_id": task_id,
+                "source": "codex-cli",
+                "title": title,
+                "summary": f"Codex turn completed{token_suffix}",
             },
         )
         return
@@ -152,6 +218,7 @@ def handle_json_event(bus_url: str, task_id: str, title: str, event: dict[str, A
 
 
 def read_output_file(path: str) -> str:
+    """读取通过 `-o` 持久化下来的最终 Codex 消息。"""
     try:
         data = Path(path).read_text(encoding="utf-8").strip()
     except FileNotFoundError:
@@ -160,6 +227,7 @@ def read_output_file(path: str) -> str:
 
 
 def main() -> int:
+    """运行 Codex，转发生命周期事件，并发布最终任务结果。"""
     args = parse_args()
     task_id = args.task_id or f"codex-{uuid.uuid4().hex[:12]}"
     title = args.title

@@ -1,8 +1,10 @@
 import SwiftUI
 
+/// 渲染顶部胶囊以及展开后的任务详情面板。
 struct CapsuleRootView: View {
     @ObservedObject var store: StatusStore
 
+    /// 胶囊窗口对应的根 SwiftUI 视图。
     var body: some View {
         capsuleBody
     }
@@ -109,11 +111,13 @@ struct CapsuleRootView: View {
     }
 }
 
+/// 展开面板中使用的小型着色动作按钮。
 private struct ActionButton: View {
     let title: String
     let tint: Color
     let action: () -> Void
 
+    /// 渲染一个带颜色描边的紧凑任务动作按钮。
     var body: some View {
         Button(title, action: action)
             .buttonStyle(.plain)
@@ -131,9 +135,11 @@ private struct ActionButton: View {
     }
 }
 
+/// 展示在当前任务摘要下方的紧凑最近任务行。
 private struct RecentTaskRow: View {
     let task: RemoteTask
 
+    /// 渲染一条带状态颜色和简短标签的最近任务。
     var body: some View {
         HStack(spacing: 8) {
             Circle()
