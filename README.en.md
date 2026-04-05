@@ -1,152 +1,79 @@
-# PROJECT_NAME
+<p align="center">
+  <a href="./README.md">中文</a> |
+  <a href="./README.en.md">English</a>
+</p>
 
-A macOS live status layer for CLI and AI agents.
+# term-home
 
-`PROJECT_NAME` is a macOS top-layer status center for CLI tools and autonomous agents.  
-It turns long-running terminal workflows into something visible, controllable, and interruptible — with a notch-style UI, real-time task state, and a unified event protocol for multiple CLIs.
+A macOS top-layer runtime for CLI tools and AI agents.
 
-## Why
+## Current status (Core MVP shipped)
 
-Modern CLI tools are getting more powerful:
+This repo now includes a first working V0 focused on the core loop:
 
-- coding agents
-- build and deploy tools
-- scraping and automation scripts
-- AI-assisted terminal workflows
-- long-running local or remote jobs
+- Unified event protocol + event ingestion API
+- Task state model and normalization
+- Top-layer UI (web notch-style simulation)
+- Human actions (stop/retry/approve/reject)
+- Real-time updates via SSE
 
-But the UX is still primitive:
+> Note: this is a fast-landing version to validate the runtime interaction model first. Native macOS UI comes later.
 
-- status is buried in terminal output
-- users need to keep watching the shell
-- errors are easy to miss
-- approvals and follow-up actions are hard to surface
-- every CLI invents its own way to emit state
+## Inspiration repos
 
-`PROJECT_NAME` is built to solve that.
+- [claude-island](https://github.com/farouqaldori/claude-island)
+- [boring.notch](https://github.com/TheBoredTeam/boring.notch)
 
-It provides:
+## Quick start
 
-- a **macOS top-layer UI** for task status and quick actions
-- a **unified event bus** for multiple CLIs and agents
-- a **lightweight protocol** that can sit between raw terminal output and structured agent workflows
+### 1) Run
 
-The goal is not to replace the terminal.  
-The goal is to make CLI workflows **observable, operable, and human-friendly**.
+```bash
+python3 app.py
+```
 
----
+Then open <http://127.0.0.1:8765>
 
-## What it is
+### 2) Send a demo event
 
-`PROJECT_NAME` has two core parts:
+```bash
+curl -X POST http://127.0.0.1:8765/events \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "task.started",
+    "task_id": "demo-1",
+    "source": "codex-cli",
+    "title": "Generate migration",
+    "summary": "Scanning DB diff"
+  }'
+```
 
-### 1. macOS Status Layer
-A notch-style / top-center live UI for:
+Progress update:
 
-- running task status
-- completion / failure notifications
-- approval-required prompts
-- quick actions like stop / retry / open logs / open terminal
-- multi-task overview
+```bash
+curl -X POST http://127.0.0.1:8765/events \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "task.progress",
+    "task_id": "demo-1",
+    "summary": "60% done",
+    "progress": 60
+  }'
+```
 
-### 2. Unified CLI Event Bus
-A common event model for:
+Snapshot:
 
-- AI coding agents
-- shell commands
-- build/test/deploy tools
-- browser automation runners
-- custom internal CLIs
+```bash
+curl http://127.0.0.1:8765/tasks
+```
 
-Instead of parsing raw terminal text everywhere, `PROJECT_NAME` introduces a standard event contract so different tools can publish structured state consistently.
+## OpenSpec (Spec-Coding)
 
----
+OpenSpec is initialized under:
 
-## Core ideas
+- `openspec/README.md`
+- `openspec/specs/core-mvp/spec.md`
+- `openspec/specs/core-mvp/plan.md`
+- `openspec/specs/core-mvp/tasks.md`
 
-### Visible
-You should not need to stare at a terminal to know what your agent is doing.
-
-### Actionable
-A status surface is only useful if you can act on it:
-- approve
-- reject
-- stop
-- retry
-- inspect
-- jump back to context
-
-### Tool-agnostic
-This should work across multiple CLIs, not just one vendor or one agent framework.
-
-### Human-in-the-loop
-Autonomous tools are useful, but users still need a clear control point for sensitive or important actions.
-
-### Event-first
-The reliable abstraction is not “terminal text”, but “structured events”.
-
----
-
-## Use cases
-
-### AI coding agents
-- Claude Code
-- Codex CLI
-- Aider
-- OpenCode
-- OpenClaw
-- custom internal agents
-
-### Developer workflows
-- build / test / lint
-- long-running scripts
-- deploy jobs
-- migration tools
-- local automation pipelines
-
-### Browser / ops automation
-- Playwright runners
-- browser agents
-- form-filling automation
-- repetitive operational tasks
-
----
-
-## Problem statement
-
-Today’s CLI workflows have a gap between execution power and runtime UX.
-
-### The current state
-- output streams are noisy
-- task state is implicit, not explicit
-- progress is hard to summarize
-- notifications are fragmented
-- approvals are often trapped inside terminal sessions
-- multiple concurrent jobs are difficult to manage
-
-### What we want
-A unified runtime layer where any CLI can say:
-
-- I started
-- I’m running
-- I need approval
-- I completed
-- I failed
-- here is the next best action
-
-And where macOS can surface that cleanly in one place.
-
----
-
-## Architecture
-
-```text
-+--------------------+       +----------------------+       +----------------------+
-|   CLI / Agent      | ----> |  PROJECT_NAME Bus    | ----> |  macOS Status Layer  |
-|                    |       |                      |       |                      |
-| - Claude Code      |       | - Event intake       |       | - notch/live island  |
-| - Codex CLI        |       | - Normalization      |       | - quick actions      |
-| - Aider            |       | - Routing            |       | - notifications      |
-| - Shell scripts    |       | - Task state model   |       | - task details       |
-| - Playwright jobs  |       | - History / storage  |       | - jump to terminal   |
-+--------------------+       +----------------------+       +----------------------+
+These files define goals, constraints, implementation plan, and acceptance criteria.
