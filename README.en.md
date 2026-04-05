@@ -156,10 +156,9 @@ And where macOS can surface that cleanly in one place.
 
 ## MVP roadmap
 
-The repository already contains a runnable Core prototype for validating the event model and the basic interaction loop:
+The repository already contains a runnable Core prototype for validating the event model and the task-state loop:
 
 - `app.py`: unified event bus service (`POST /events`, `GET /tasks`, `GET /stream`, `POST /tasks/{id}/actions`).
-- `web/`: notch-style top-layer web prototype with human action buttons.
 - `openspec/`: spec, plan, and task breakdown.
 
 This build is useful for fast validation, but it is not the final definition of the MVP.  
@@ -211,4 +210,10 @@ Only after V1 is stable:
 python3 app.py
 ```
 
-Open: <http://127.0.0.1:8765>
+Available endpoints:
+
+- `GET /health`
+- `GET /tasks`
+- `GET /stream`
+- `POST /events`
+- `POST /tasks/{id}/actions`

@@ -16,9 +16,9 @@
 - 提供 `/stream` SSE 订阅。
 
 ### Phase 3 — Top Layer UI
-- 提供顶部胶囊状态条。
-- 展示任务列表和状态标签。
-- 提供 stop/retry/approve/reject 操作按钮。
+- 提供最小事件观察与动作验证方式。
+- 验证状态流转与 SSE 推送。
+- 验证 stop/retry/approve/reject 动作映射。
 
 ### Phase 4 — Demo & docs
 - 补充运行说明。
@@ -29,7 +29,7 @@
 ### Phase 5 — Native Shell
 - 建立原生 macOS app 壳层。
 - 实现顶部收起态与展开态。
-- 将 Web 原型降级为内部验证资产，不再作为正式 MVP 载体。
+- 以原生 UI 替代临时原型层，作为正式 MVP 载体。
 
 ### Phase 6 — Native Runtime Integration
 - 复用或替换当前事件总线，使原生 app 能消费真实事件。
@@ -57,6 +57,6 @@
 ## 设计取舍
 
 - **Python 标准库**：无第三方依赖，最快演示。
-- **Web UI 模拟 notch**：只用于前期验证，不作为正式 MVP 终态。
+- **当前仓库原型只保留事件总线**：临时 UI 已移除，避免误导为正式 MVP。
 - **原生 MVP 收敛范围**：先做顶部入口、单任务状态和少量动作，不做桌面工具箱。
 - **内存存储**：V0 追求速度，V1 只补最小本地状态，后续再扩展持久化。

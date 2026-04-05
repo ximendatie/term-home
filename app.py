@@ -17,7 +17,6 @@ import time
 from dataclasses import dataclass, field, asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -146,7 +145,6 @@ class EventBus:
 
 
 BUS = EventBus()
-WEB_ROOT = Path(__file__).parent / "web"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -197,25 +195,7 @@ class Handler(BaseHTTPRequestHandler):
                 BUS.unsubscribe(sub)
             return
 
-        if p.path == "/" or p.path == "/index.html":
-            path = WEB_ROOT / "index.html"
-        elif p.path.startswith("/assets/"):
-            path = WEB_ROOT / p.path.lstrip("/")
-        else:
-            self._json(404, {"error": "not_found"})
-            return
-
-        if not path.exists() or not path.is_file():
-            self._json(404, {"error": "asset_not_found"})
-            return
-
-        ctype = "text/html; charset=utf-8" if path.suffix == ".html" else "text/css; charset=utf-8"
-        data = path.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        self._json(404, {"error": "not_found"})
 
     def do_POST(self) -> None:  # noqa: N802
         p = urlparse(self.path)
