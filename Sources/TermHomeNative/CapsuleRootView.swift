@@ -257,14 +257,18 @@ struct CapsuleRootView: View {
 
     /// 渲染右上角的控制元素，保持与参考实现相同的角落占位思路。
     private var headerTrailing: some View {
-        Group {
-            if !store.isExpanded {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.82))
-                    .frame(width: 16, height: 16)
+        ZStack {
+            Circle()
+                .fill(store.phase.color.opacity(store.phase == .idle ? 0.42 : 0.92))
+                .frame(width: store.isExpanded ? 8 : 9, height: store.isExpanded ? 8 : 9)
+
+            if store.phase != .idle {
+                Circle()
+                    .stroke(store.phase.color.opacity(0.35), lineWidth: 1.2)
+                    .frame(width: store.isExpanded ? 12 : 13, height: store.isExpanded ? 12 : 13)
             }
         }
+        .frame(width: 18, height: 18)
     }
 
     /// 渲染展开态主体内容，包括当前任务、动作区和最近任务。
