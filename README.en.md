@@ -150,3 +150,22 @@ And where macOS can surface that cleanly in one place.
 | - Shell scripts    |       | - Task state model   |       | - task details       |
 | - Playwright jobs  |       | - History / storage  |       | - jump to terminal   |
 +--------------------+       +----------------------+       +----------------------+
+```
+
+---
+
+## MVP status (incremental update)
+
+Without changing the plan above, a runnable Core MVP has now been added for fast validation:
+
+- `app.py`: unified event bus service (`POST /events`, `GET /tasks`, `GET /stream`, `POST /tasks/{id}/actions`).
+- `web/`: notch-style top-layer web prototype with human action buttons.
+- `openspec/`: initialized spec-coding workspace (`spec.md / plan.md / tasks.md`).
+
+### Run
+
+```bash
+python3 app.py
+```
+
+Open: <http://127.0.0.1:8765>
