@@ -133,20 +133,23 @@ class EventBus:
         if action not in VALID_ACTIONS:
             raise ValueError(f"unsupported action: {action}")
 
+        with self._lock:
+            existing = self._tasks.get(task_id)
+
         event: dict[str, Any] = {
             "type": "task.summary",
             "task_id": task_id,
-            "source": "term-home-ui",
+            "source": existing.source if existing else "term-home-ui",
             "summary": f"Action requested: {action}",
-            "title": "User intervention",
+            "title": existing.title if existing else "User intervention",
         }
 
         if action == "stop":
             event = {**event, "type": "task.cancelled", "summary": "Stopped by user"}
         elif action == "retry":
-            event = {**event, "type": "task.started", "summary": "Retry requested by user"}
+            event = {**event, "summary": "Retry requested by user"}
         elif action == "approve":
-            event = {**event, "type": "task.started", "summary": "Approved by user, resumed"}
+            event = {**event, "summary": "Approved by user, waiting for backend resume"}
         elif action == "reject":
             event = {**event, "type": "task.failed", "summary": "Rejected by user"}
 

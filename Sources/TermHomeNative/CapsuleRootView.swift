@@ -73,7 +73,6 @@ struct NotchShape: Shape {
 /// 原生顶部岛体主视图，负责收起态与展开态的统一骨架。
 struct CapsuleRootView: View {
     @ObservedObject var store: StatusStore
-    @Namespace private var headerNamespace
 
     /// 返回当前状态下的顶部内圆角半径。
     private var topCornerRadius: CGFloat {
@@ -176,8 +175,6 @@ struct CapsuleRootView: View {
                 }
             }
             .animation(.spring(response: 0.42, dampingFraction: 0.84), value: store.isExpanded)
-            .animation(.smooth, value: store.phase)
-            .animation(.smooth, value: store.recentTasks.map(\.id))
     }
 
     /// 使用和参考仓库一致的单列骨架，头部始终存在，展开态只追加主体内容。
@@ -191,8 +188,7 @@ struct CapsuleRootView: View {
                     .frame(width: panelSize.width - 24, alignment: .leading)
                     .transition(
                         .asymmetric(
-                            insertion: .scale(scale: 0.88, anchor: .top)
-                                .combined(with: .opacity),
+                            insertion: .opacity.animation(.easeOut(duration: 0.18)),
                             removal: .opacity.animation(.easeOut(duration: 0.15))
                         )
                     )
@@ -202,12 +198,21 @@ struct CapsuleRootView: View {
 
     /// 构建靠两侧安全区分布的头部，直接复用参考仓库的单行槽位思路。
     private var headerRow: some View {
-        ZStack {
-            if store.isExpanded {
-                expandedHeaderRow
-            } else {
-                compactHeaderRow
+        HStack(spacing: 0) {
+            headerLeading
+                .frame(width: sideWidth, alignment: .center)
+
+            Group {
+                if store.isExpanded {
+                    Spacer(minLength: 0)
+                } else {
+                    headerCompactCenter
+                        .frame(width: compactCenterWidth)
+                }
             }
+
+            headerTrailing
+                .frame(width: sideWidth, alignment: .center)
         }
         .frame(height: compactHeight)
     }
@@ -215,46 +220,8 @@ struct CapsuleRootView: View {
     /// 渲染左上角的品牌和状态元素。
     private var headerLeading: some View {
         Image(systemName: "terminal.fill")
-            .font(.system(size: store.isExpanded ? 12 : 11, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white.opacity(0.95))
-            .matchedGeometryEffect(id: "header-terminal-icon", in: headerNamespace)
-    }
-
-    /// 收起态头部，提供共享几何动画的起点位置。
-    private var compactHeaderRow: some View {
-        HStack(spacing: 0) {
-            compactLeadingSlot
-            headerCompactCenter
-                .frame(width: compactCenterWidth)
-            compactTrailingSlot
-        }
-    }
-
-    /// 展开态头部，提供共享几何动画的终点位置。
-    private var expandedHeaderRow: some View {
-        HStack(spacing: 0) {
-            headerLeading
-                .frame(width: 20, alignment: .leading)
-                .padding(.leading, 8)
-
-            Spacer(minLength: 0)
-
-            headerTrailing
-                .frame(width: 20, alignment: .trailing)
-                .padding(.trailing, 8)
-        }
-    }
-
-    /// 为头部左侧保留稳定宽度，让左上角图标在展开时平滑向外移动。
-    private var compactLeadingSlot: some View {
-        headerLeading
-            .frame(width: sideWidth, alignment: .center)
-    }
-
-    /// 为头部右侧保留稳定宽度，让右上角状态点在展开时平滑向外移动。
-    private var compactTrailingSlot: some View {
-        headerTrailing
-            .frame(width: sideWidth, alignment: .center)
     }
 
     /// 渲染收起态中间的状态槽，强化“灵动岛存在”而不是普通小控件。
@@ -299,14 +266,12 @@ struct CapsuleRootView: View {
         ZStack {
             Circle()
                 .fill(store.phase.color.opacity(store.phase == .idle ? 0.42 : 0.92))
-                .frame(width: store.isExpanded ? 8 : 9, height: store.isExpanded ? 8 : 9)
-                .matchedGeometryEffect(id: "header-status-dot", in: headerNamespace)
+                .frame(width: 9, height: 9)
 
             if store.phase != .idle {
                 Circle()
                     .stroke(store.phase.color.opacity(0.35), lineWidth: 1.2)
-                    .frame(width: store.isExpanded ? 12 : 13, height: store.isExpanded ? 12 : 13)
-                    .matchedGeometryEffect(id: "header-status-ring", in: headerNamespace)
+                    .frame(width: 13, height: 13)
             }
         }
         .frame(width: 18, height: 18)

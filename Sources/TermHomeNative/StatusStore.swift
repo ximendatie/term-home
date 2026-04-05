@@ -168,6 +168,7 @@ final class StatusStore: ObservableObject {
     private let client = EventBusClient()
     private var streamTask: Task<Void, Never>?
     private var currentTaskID: String?
+    private var lastExpandedAt: Date?
 
     /// 启动初始快照拉取，并建立长连接 SSE 订阅。
     init() {
@@ -182,6 +183,7 @@ final class StatusStore: ObservableObject {
     func expand() {
         guard !isExpanded else { return }
         isExpanded = true
+        lastExpandedAt = Date()
         onLayoutChange?()
     }
 
@@ -195,7 +197,16 @@ final class StatusStore: ObservableObject {
     /// 在需要时切换胶囊展开状态，并通知窗口重新布局。
     func toggleExpanded() {
         isExpanded.toggle()
+        if isExpanded {
+            lastExpandedAt = Date()
+        }
         onLayoutChange?()
+    }
+
+    /// 判断当前是否处于刚展开后的短暂保护期，避免被瞬时失焦误收起。
+    func shouldIgnoreImmediateCollapse(now: Date = Date()) -> Bool {
+        guard let lastExpandedAt else { return false }
+        return now.timeIntervalSince(lastExpandedAt) < 0.18
     }
 
     /// 为当前活动任务发送批准动作。
@@ -263,7 +274,7 @@ final class StatusStore: ObservableObject {
         recentTasks = Array(snapshot.tasks.prefix(3))
         onLayoutChange?()
 
-        if let current = snapshot.tasks.first {
+        if let current = preferredTask(from: snapshot.tasks) {
             applyCurrentTask(current)
         } else {
             currentTaskID = nil
@@ -301,8 +312,34 @@ final class StatusStore: ObservableObject {
         recentTasks = Array(tasks.sorted { $0.updatedAt > $1.updatedAt }.prefix(3))
         onLayoutChange?()
 
-        if recentTasks.first?.taskID == task.taskID {
-            applyCurrentTask(task)
+        if let current = preferredTask(from: recentTasks),
+           current.taskID == task.taskID {
+            applyCurrentTask(current)
+        }
+    }
+
+    /// 从快照中挑出最值得放到顶部主位的任务，避免被合成动作长期污染。
+    private func preferredTask(from tasks: [RemoteTask]) -> RemoteTask? {
+        tasks.max { lhs, rhs in
+            taskPriority(lhs) > taskPriority(rhs)
+        }
+    }
+
+    /// 给任务分配排序权重，优先展示真实来源的待处理任务。
+    private func taskPriority(_ task: RemoteTask) -> (Int, Double) {
+        let sourcePenalty = task.source == "term-home-ui" ? 1 : 0
+
+        switch task.phase {
+        case .awaitingApproval:
+            return (500 - sourcePenalty, task.updatedAt)
+        case .running:
+            return (400 - sourcePenalty, task.updatedAt)
+        case .failed:
+            return (300 - sourcePenalty, task.updatedAt)
+        case .completed:
+            return (200 - sourcePenalty, task.updatedAt)
+        case .idle:
+            return (100 - sourcePenalty, task.updatedAt)
         }
     }
 
