@@ -10,15 +10,15 @@
 
 ## V1 / Native MVP
 
-- [ ] 建立原生 macOS app 壳层。
-- [ ] 实现顶部胶囊 / notch 收起态。
-- [ ] 实现点击展开的简单详情面板。
-- [ ] 在原生界面中展示当前 1 个活动任务。
-- [ ] 支持 `running` / `awaiting_approval` / `completed` / `failed` 四种核心状态。
-- [ ] 支持 `approve` / `reject` / `retry` 三个核心动作。
-- [ ] 接入 1 个真实 CLI / Agent 事件源。
-- [ ] 增加空状态、断连、非法事件兜底。
-- [ ] 增加最小本地状态与最近少量任务展示。
+- [x] 建立原生 macOS app 壳层。
+- [x] 实现顶部胶囊 / notch 收起态。
+- [x] 实现点击展开的简单详情面板。
+- [x] 在原生界面中展示当前 1 个活动任务。
+- [x] 支持 `running` / `awaiting_approval` / `completed` / `failed` 四种核心状态。
+- [x] 支持 `approve` / `reject` / `retry` 三个核心动作。
+- [x] 接入 1 个真实 CLI / Agent 事件源（Codex CLI bridge）。
+- [x] 增加空状态、断连、非法事件兜底。
+- [x] 增加最小本地状态与最近少量任务展示。
 
 ## V2 / Enhanced
 

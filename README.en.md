@@ -159,6 +159,8 @@ And where macOS can surface that cleanly in one place.
 The repository already contains a runnable Core prototype for validating the event model and the task-state loop:
 
 - `app.py`: unified event bus service (`POST /events`, `GET /tasks`, `GET /stream`, `POST /tasks/{id}/actions`).
+- `Sources/TermHomeNative/`: native macOS shell scaffold (top capsule window, expanded panel, placeholder actions).
+- `Package.swift`: local build entry for the native shell.
 - `openspec/`: spec, plan, and task breakdown.
 
 This build is useful for fast validation, but it is not the final definition of the MVP.  
@@ -206,6 +208,8 @@ Only after V1 is stable:
 
 ### Run the current prototype
 
+Event bus:
+
 ```bash
 python3 app.py
 ```
@@ -217,3 +221,54 @@ Available endpoints:
 - `GET /stream`
 - `POST /events`
 - `POST /tasks/{id}/actions`
+
+Native shell:
+
+```bash
+swift run TermHomeNative
+```
+
+What the native shell already has:
+
+- a top capsule form
+- a clickable expanded detail panel
+- live polling from `app.py`
+- native action buttons that post back to the local bus
+- a short recent-task list and disconnect fallback
+
+What it does not have yet:
+
+- fuller task history
+- finer-grained streaming state mapping
+
+### Codex CLI integration (first real source)
+
+The repository now includes a minimal Codex CLI bridge:
+
+```bash
+python3 scripts/run_codex_exec.py "Summarize what is still missing from the native MVP."
+```
+
+Recommended run order:
+
+```bash
+python3 app.py
+swift run TermHomeNative
+python3 scripts/run_codex_exec.py "Summarize what is still missing from the native MVP."
+```
+
+The bridge will:
+
+- launch `codex exec --json`
+- translate lifecycle output into `term-home` task events
+- publish the final result as `completed` or `failed`
+
+Example with options:
+
+```bash
+python3 scripts/run_codex_exec.py \
+  --cd /Users/bytedance/Desktop/term-home \
+  --full-auto \
+  --title "Codex native MVP check" \
+  "Check which capabilities are still missing from the native MVP."
+```

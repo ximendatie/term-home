@@ -1,1 +1,4 @@
 .pycache
+.build
+.swiftpm
+.DS_Store
