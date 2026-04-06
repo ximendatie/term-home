@@ -185,6 +185,10 @@ final class StatusStore: ObservableObject {
         isExpanded = true
         lastExpandedAt = Date()
         onLayoutChange?()
+        Task { [weak self] in
+            guard let self else { return }
+            try? await self.refreshSnapshot()
+        }
     }
 
     /// 收起胶囊，并通知窗口重新布局。
@@ -320,9 +324,9 @@ final class StatusStore: ObservableObject {
 
     /// 从快照中挑出最值得放到顶部主位的任务，避免被合成动作长期污染。
     private func preferredTask(from tasks: [RemoteTask]) -> RemoteTask? {
-        tasks.max { lhs, rhs in
+        tasks.sorted { lhs, rhs in
             taskPriority(lhs) > taskPriority(rhs)
-        }
+        }.first
     }
 
     /// 给任务分配排序权重，优先展示真实来源的待处理任务。

@@ -42,6 +42,13 @@
 - 跑通 `running -> awaiting_approval -> approve/reject -> completed/failed` 闭环。
 - 完成原生形态下的最小使用验证。
 
+### Phase 7.5 — Runtime And Interaction Hardening
+- 修正原生壳层与本地总线之间的快照 / SSE 同步问题。
+- 修正顶部主位任务选择逻辑，优先展示真实来源任务。
+- 修正动作回写后的任务污染问题，避免 `User intervention` 长期占据主位。
+- 对齐 `claude-island` 的宿主交互模型：收起态命中展开、展开态点外部收起、事件透传。
+- 继续收敛展开 / 收起动画结构，减少宿主焦点与布局重算带来的不稳定。
+
 ## 后续阶段（V2 / Enhanced）
 
 ### Phase 8 — Multi-task & details
@@ -61,3 +68,4 @@
 - **当前仓库原型只保留事件总线**：临时 UI 已移除，避免误导为正式 MVP。
 - **原生 MVP 收敛范围**：先做顶部入口、单任务状态和少量动作，不做桌面工具箱。
 - **内存存储**：V0 追求速度，V1 只补最小本地状态，后续再扩展持久化。
+- **OpenSpec 优先**：后续需求和修复先落到 `openspec/specs/core-mvp/`，再推进实现与验证。
