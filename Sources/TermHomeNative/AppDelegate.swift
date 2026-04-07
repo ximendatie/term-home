@@ -122,7 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func installGlobalMouseMonitor() {
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.handleMouseDown(screenPoint: event.locationInWindow)
+                self?.handleMouseDown(screenPoint: self?.screenPoint(for: event) ?? event.locationInWindow)
             }
         }
     }
@@ -132,10 +132,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self else { return event }
             Task { @MainActor [weak self] in
-                self?.handleMouseDown(screenPoint: event.locationInWindow)
+                guard let self else { return }
+                self.handleMouseDown(screenPoint: self.screenPoint(for: event))
             }
             return event
         }
+    }
+
+    /// 统一将本地或全局鼠标事件转换为屏幕坐标，避免窗口内点击被误判为外部点击。
+    private func screenPoint(for event: NSEvent) -> NSPoint {
+        if let window = event.window {
+            return window.convertPoint(toScreen: event.locationInWindow)
+        }
+        return event.locationInWindow
     }
 
     /// 统一处理鼠标点击的展开和收起逻辑。

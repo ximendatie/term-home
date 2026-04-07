@@ -119,6 +119,7 @@ V1 是真正对外可用的最小版本，范围严格收敛：
 - 原生壳层通过 `GET /tasks` + `GET /stream`（SSE）消费本地总线状态。
 - 展开时会主动拉取一次最新快照，避免只依赖 SSE 增量推送。
 - 顶部主位任务优先展示真实来源任务，降低 `term-home-ui` 合成动作事件的优先级。
+- 本地总线支持最小任务清理入口，便于开发态移除残留测试任务，避免旧 `running` 状态长期污染任务列表。
 
 ### 动作回写
 
@@ -130,9 +131,12 @@ V1 是真正对外可用的最小版本，范围严格收敛：
 
 - 当前已支持 `codex-cli` bridge，可通过 `codex exec --json` 发布结构化生命周期事件。
 - 当前新增 `coco-cli` bridge，可通过 `coco -p --json` 发布最小任务生命周期事件。
+- 当前新增通用命令 bridge，可包装任意 shell 命令并发布最小生命周期事件。
 - `coco-cli` 当前优先保证 `started -> completed/failed` 闭环；由于一次性 JSON 输出模型，默认不提供细粒度中间进度事件。
 - CLI bridge 现已抽象成统一 adapter 骨架，按输出能力分为 `streaming adapter` 和 `print adapter` 两类。
 - 后续新增 CLI 应优先复用公共 bridge 能力，只补命令组装、输出解析和少量事件映射，而不是复制整份脚本。
+- 通用命令 bridge 的第一版只保证 `started -> running -> completed/failed`，并可通过可选 `ready-pattern` 更新“服务已启动”类摘要，不负责深度语义理解。
+- 为避免入口分散，当前新增统一命令入口 `term_home.py run -- <command>`，底层复用通用命令 bridge。
 
 ### 宿主交互
 

@@ -19,10 +19,13 @@
 - [x] 接入 1 个真实 CLI / Agent 事件源（Codex CLI bridge）。
 - [x] 增加第 2 个真实 CLI 事件源（Coco CLI bridge）。
 - [x] 抽象统一 CLI bridge adapter，拆分 streaming / print 两类公共能力。
+- [x] 增加通用命令 bridge，支持包装任意本地命令并发布 started/running/completed/failed。
+- [x] 增加统一入口 `term_home.py run`，封装通用命令 bridge。
 - [x] 增加空状态、断连、非法事件兜底。
 - [x] 增加最小本地状态与最近少量任务展示。
 - [x] 修正主位任务选择逻辑，优先展示真实来源任务。
 - [x] 修正动作回写污染任务标题 / 来源的问题。
+- [x] 增加开发态任务清理入口，支持按 `task_id/status/source` 清理残留任务。
 - [x] 补充收起态命中展开、展开态点外部收起的宿主层交互。
 - [x] 展开时主动刷新快照，降低 SSE 漏刷带来的空状态问题。
 

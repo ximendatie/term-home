@@ -156,6 +156,43 @@ class EventBus:
         self.publish(event)
         return event
 
+    def cleanup(
+        self,
+        task_ids: list[str] | None = None,
+        statuses: list[str] | None = None,
+        sources: list[str] | None = None,
+        remove_all: bool = False,
+    ) -> dict[str, Any]:
+        """按条件删除开发态残留任务，并返回本次清理结果。"""
+        with self._lock:
+            ids_filter = set(task_ids or [])
+            statuses_filter = set(statuses or [])
+            sources_filter = set(sources or [])
+            removed_ids: list[str] = []
+
+            for task_id, task in list(self._tasks.items()):
+                should_remove = remove_all
+                if ids_filter and task_id in ids_filter:
+                    should_remove = True
+                if statuses_filter and task.status in statuses_filter:
+                    should_remove = True
+                if sources_filter and task.source in sources_filter:
+                    should_remove = True
+                if not should_remove:
+                    continue
+                removed_ids.append(task_id)
+                del self._tasks[task_id]
+
+            result = {
+                "removed": len(removed_ids),
+                "removed_task_ids": removed_ids,
+                "remaining": len(self._tasks),
+            }
+            payload = f"event: cleanup\ndata: {json.dumps(result, ensure_ascii=False)}\n\n"
+            for sub in self._subscribers:
+                sub.put(payload)
+            return result
+
 
 BUS = EventBus()
 
@@ -246,6 +283,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": str(err)})
                 return
             self._json(200, {"ok": True, "emitted": emitted})
+            return
+
+        if p.path == "/admin/cleanup":
+            result = BUS.cleanup(
+                task_ids=body.get("task_ids"),
+                statuses=body.get("statuses"),
+                sources=body.get("sources"),
+                remove_all=bool(body.get("all")),
+            )
+            self._json(200, {"ok": True, **result})
             return
 
         self._json(404, {"error": "not_found"})
