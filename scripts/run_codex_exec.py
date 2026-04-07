@@ -1,22 +1,39 @@
 #!/usr/bin/env python3
-"""运行 Codex CLI，并将其生命周期桥接到本地 term-home 事件总线。"""
+"""运行 Codex CLI，并通过 streaming adapter 桥接到本地 term-home 事件总线。"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import subprocess
-import sys
 import tempfile
-import time
 import uuid
 from pathlib import Path
 from typing import Any
-from urllib import error, request
-
-
-DEFAULT_BUS_URL = "http://127.0.0.1:8765"
+try:
+    from scripts.cli_bridge_common import (
+        DEFAULT_BUS_URL,
+        BridgeContext,
+        CommandOutcome,
+        publish_log,
+        publish_progress,
+        publish_summary,
+        run_streaming_bridge,
+        summarize_text,
+        trim_remainder_args,
+    )
+except ModuleNotFoundError:
+    from cli_bridge_common import (
+        DEFAULT_BUS_URL,
+        BridgeContext,
+        CommandOutcome,
+        publish_log,
+        publish_progress,
+        publish_summary,
+        run_streaming_bridge,
+        summarize_text,
+        trim_remainder_args,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,32 +70,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def post_event(bus_url: str, payload: dict[str, Any]) -> None:
-    """向本地 term-home 总线发送一条归一化任务事件。"""
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = request.Request(
-        f"{bus_url.rstrip('/')}/events",
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with request.urlopen(req, timeout=2):
-            return
-    except error.URLError as exc:
-        print(f"[term-home] failed to post event: {exc}", file=sys.stderr)
-
-
-def summarize_line(line: str) -> str:
-    """将原始输出裁剪成适合界面展示的摘要长度。"""
-    line = line.strip()
-    if not line:
-        return ""
-    if len(line) <= 160:
-        return line
-    return f"{line[:157]}..."
-
-
 def build_codex_command(args: argparse.Namespace, output_file: str) -> list[str]:
     """为当前执行组装完整的 `codex exec` 命令。"""
     cmd = ["codex", "exec", "--json", "-o", output_file]
@@ -91,56 +82,26 @@ def build_codex_command(args: argparse.Namespace, output_file: str) -> list[str]
     if args.dangerously_bypass_approvals_and_sandbox:
         cmd.append("--dangerously-bypass-approvals-and-sandbox")
 
-    extra = list(args.codex_args)
-    if extra and extra[0] == "--":
-        extra = extra[1:]
-    cmd.extend(extra)
+    cmd.extend(trim_remainder_args(args.codex_args))
     cmd.append(args.prompt)
     return cmd
 
 
-def handle_json_event(bus_url: str, task_id: str, title: str, event: dict[str, Any]) -> None:
+def handle_json_event(context: BridgeContext, event: dict[str, Any]) -> None:
     """将一条 Codex JSONL 事件映射成 term-home 的任务语义。"""
     event_type = event.get("type")
     if event_type == "thread.started":
-        post_event(
-            bus_url,
-            {
-                "type": "task.summary",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": f"Codex thread started: {event.get('thread_id', 'unknown')}",
-            },
-        )
+        publish_summary(context, f"Codex thread started: {event.get('thread_id', 'unknown')}")
         return
 
     if event_type == "turn.started":
-        post_event(
-            bus_url,
-            {
-                "type": "task.progress",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": "Codex turn started",
-            },
-        )
+        publish_progress(context, "Codex turn started")
         return
 
     if event_type == "item.started":
         item = event.get("item") or {}
         item_type = str(item.get("type", "item"))
-        post_event(
-            bus_url,
-            {
-                "type": "task.progress",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": f"Codex started {item_type}",
-            },
-        )
+        publish_progress(context, f"Codex started {item_type}")
         return
 
     if event_type == "item.completed":
@@ -148,73 +109,26 @@ def handle_json_event(bus_url: str, task_id: str, title: str, event: dict[str, A
         item_type = str(item.get("type", "item"))
 
         if item_type == "agent_message":
-            text = summarize_line(str(item.get("text", "Agent message received.")))
-            post_event(
-                bus_url,
-                {
-                    "type": "task.summary",
-                    "task_id": task_id,
-                    "source": "codex-cli",
-                    "title": title,
-                    "summary": text or "Agent message received.",
-                },
-            )
+            text = summarize_text(str(item.get("text", "Agent message received.")))
+            publish_summary(context, text or "Agent message received.")
             return
 
-        post_event(
-            bus_url,
-            {
-                "type": "task.progress",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": f"Codex completed {item_type}",
-            },
-        )
+        publish_progress(context, f"Codex completed {item_type}")
         return
 
     if event_type == "turn.completed":
         usage = event.get("usage") or {}
         output_tokens = usage.get("output_tokens")
         token_suffix = f" ({output_tokens} output tokens)" if output_tokens else ""
-        post_event(
-            bus_url,
-            {
-                "type": "task.progress",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": f"Codex turn completed{token_suffix}",
-            },
-        )
+        publish_progress(context, f"Codex turn completed{token_suffix}")
         return
 
     if event_type == "error":
-        message = summarize_line(str(event.get("message", "Codex emitted an error event.")))
-        post_event(
-            bus_url,
-            {
-                "type": "task.summary",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": message,
-            },
-        )
+        message = summarize_text(str(event.get("message", "Codex emitted an error event.")))
+        publish_summary(context, message)
         return
 
-    compact = summarize_line(json.dumps(event, ensure_ascii=False))
-    if compact:
-        post_event(
-            bus_url,
-            {
-                "type": "task.log",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "line": compact,
-            },
-        )
+    publish_log(context, json.dumps(event, ensure_ascii=False))
 
 
 def read_output_file(path: str) -> str:
@@ -223,7 +137,35 @@ def read_output_file(path: str) -> str:
         data = Path(path).read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         return ""
-    return summarize_line(data)
+    return summarize_text(data)
+
+
+def handle_stream_line(context: BridgeContext, line: str) -> None:
+    """解析一行 Codex 输出，并映射成标准事件。"""
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        publish_log(context, line)
+        return
+
+    if isinstance(event, dict):
+        handle_json_event(context, event)
+
+
+def build_outcome(output_file: str, exit_code: int, duration: int) -> CommandOutcome:
+    """根据 Codex 的退出码和输出文件构造统一执行结果。"""
+    final_message = read_output_file(output_file)
+    if exit_code == 0:
+        return CommandOutcome(
+            returncode=0,
+            duration_seconds=duration,
+            final_message=final_message or f"Codex task completed in {duration}s",
+        )
+    return CommandOutcome(
+        returncode=exit_code,
+        duration_seconds=duration,
+        final_message=final_message or f"Codex task failed with exit code {exit_code}",
+    )
 
 
 def main() -> int:
@@ -237,82 +179,20 @@ def main() -> int:
         output_file = tmp.name
 
     cmd = build_codex_command(args, output_file)
-
-    post_event(
-        args.bus_url,
-        {
-            "type": "task.started",
-            "task_id": task_id,
-            "source": "codex-cli",
-            "title": title,
-            "summary": f"Running `codex exec` in {workdir}",
-        },
+    context = BridgeContext(
+        bus_url=args.bus_url,
+        task_id=task_id,
+        source="codex-cli",
+        title=title,
+        workdir=workdir,
     )
-
-    started_at = time.time()
-    process = subprocess.Popen(
-        cmd,
-        cwd=workdir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
+    return run_streaming_bridge(
+        context=context,
+        cmd=cmd,
+        started_summary=f"Running `codex exec` in {workdir}",
+        handle_line=handle_stream_line,
+        build_outcome=lambda exit_code, duration: build_outcome(output_file, exit_code, duration),
     )
-
-    assert process.stdout is not None
-    for raw_line in process.stdout:
-        line = raw_line.rstrip("\n")
-        if not line:
-            continue
-
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            post_event(
-                args.bus_url,
-                {
-                    "type": "task.log",
-                    "task_id": task_id,
-                    "source": "codex-cli",
-                    "title": title,
-                    "line": summarize_line(line),
-                },
-            )
-            continue
-
-        if isinstance(event, dict):
-            handle_json_event(args.bus_url, task_id, title, event)
-
-    exit_code = process.wait()
-    duration = max(1, int(time.time() - started_at))
-    final_message = read_output_file(output_file)
-
-    if exit_code == 0:
-        summary = final_message or f"Codex task completed in {duration}s"
-        post_event(
-            args.bus_url,
-            {
-                "type": "task.completed",
-                "task_id": task_id,
-                "source": "codex-cli",
-                "title": title,
-                "summary": summary,
-            },
-        )
-        return 0
-
-    summary = final_message or f"Codex task failed with exit code {exit_code}"
-    post_event(
-        args.bus_url,
-        {
-            "type": "task.failed",
-            "task_id": task_id,
-            "source": "codex-cli",
-            "title": title,
-            "summary": summary,
-        },
-    )
-    return exit_code
 
 
 if __name__ == "__main__":

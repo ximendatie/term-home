@@ -18,6 +18,7 @@
 - [x] 支持 `approve` / `reject` / `retry` 三个核心动作。
 - [x] 接入 1 个真实 CLI / Agent 事件源（Codex CLI bridge）。
 - [x] 增加第 2 个真实 CLI 事件源（Coco CLI bridge）。
+- [x] 抽象统一 CLI bridge adapter，拆分 streaming / print 两类公共能力。
 - [x] 增加空状态、断连、非法事件兜底。
 - [x] 增加最小本地状态与最近少量任务展示。
 - [x] 修正主位任务选择逻辑，优先展示真实来源任务。

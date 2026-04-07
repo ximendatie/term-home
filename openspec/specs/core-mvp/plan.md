@@ -46,6 +46,7 @@
 - 在保留统一事件契约的前提下，扩展更多可脚本化 CLI。
 - 优先接入支持一次性结构化输出的 CLI，降低 bridge 复杂度。
 - 对不同 CLI 的输出能力分层：能流式就映射进度，只能一次性输出就先保证完成态闭环。
+- 沉淀统一 bridge adapter 抽象，降低后续接入新 CLI 时的代码重复。
 
 ### Phase 7.5 — Runtime And Interaction Hardening
 - 修正原生壳层与本地总线之间的快照 / SSE 同步问题。

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""运行 Coco CLI，并将其一次性 JSON 输出桥接到本地 term-home 事件总线。"""
+"""运行 Coco CLI，并通过 print adapter 桥接到本地 term-home 事件总线。"""
 
 from __future__ import annotations
 
@@ -7,14 +7,30 @@ import argparse
 import json
 import os
 import subprocess
-import sys
-import time
 import uuid
 from typing import Any
-from urllib import error, request
-
-
-DEFAULT_BUS_URL = "http://127.0.0.1:8765"
+try:
+    from scripts.cli_bridge_common import (
+        DEFAULT_BUS_URL,
+        BridgeContext,
+        CommandOutcome,
+        publish_log,
+        publish_summary,
+        run_print_bridge,
+        summarize_text,
+        trim_remainder_args,
+    )
+except ModuleNotFoundError:
+    from cli_bridge_common import (
+        DEFAULT_BUS_URL,
+        BridgeContext,
+        CommandOutcome,
+        publish_log,
+        publish_summary,
+        run_print_bridge,
+        summarize_text,
+        trim_remainder_args,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -41,32 +57,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def post_event(bus_url: str, payload: dict[str, Any]) -> None:
-    """向本地 term-home 总线发送一条归一化任务事件。"""
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = request.Request(
-        f"{bus_url.rstrip('/')}/events",
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with request.urlopen(req, timeout=2):
-            return
-    except error.URLError as exc:
-        print(f"[term-home] failed to post event: {exc}", file=sys.stderr)
-
-
-def summarize_text(text: str) -> str:
-    """将原始输出裁剪成适合界面展示的摘要长度。"""
-    compact = " ".join(text.strip().split())
-    if not compact:
-        return ""
-    if len(compact) <= 200:
-        return compact
-    return f"{compact[:197]}..."
-
-
 def build_coco_command(args: argparse.Namespace) -> list[str]:
     """为当前执行组装完整的 `coco -p --json` 命令。"""
     cmd = ["coco", "-p", "--json"]
@@ -75,10 +65,7 @@ def build_coco_command(args: argparse.Namespace) -> list[str]:
     if args.yolo:
         cmd.append("--yolo")
 
-    extra = list(args.coco_args)
-    if extra and extra[0] == "--":
-        extra = extra[1:]
-    cmd.extend(extra)
+    cmd.extend(trim_remainder_args(args.coco_args))
     cmd.append(args.prompt)
     return cmd
 
@@ -115,33 +102,12 @@ def extract_error_summary(stdout: str, stderr: str) -> str:
     return summarize_text(combined)
 
 
-def main() -> int:
-    """运行 Coco，转发生命周期事件，并发布最终任务结果。"""
-    args = parse_args()
-    task_id = args.task_id or f"coco-{uuid.uuid4().hex[:12]}"
-    title = args.title
-    workdir = os.path.abspath(args.cd)
-    cmd = build_coco_command(args)
-
-    post_event(
-        args.bus_url,
-        {
-            "type": "task.started",
-            "task_id": task_id,
-            "source": "coco-cli",
-            "title": title,
-            "summary": f"Running `coco -p --json` in {workdir}",
-        },
-    )
-
-    started_at = time.time()
-    result = subprocess.run(
-        cmd,
-        cwd=workdir,
-        capture_output=True,
-        text=True,
-    )
-    duration = max(1, int(time.time() - started_at))
+def build_outcome(
+    context: BridgeContext,
+    result: subprocess.CompletedProcess[str],
+    duration: int,
+) -> CommandOutcome:
+    """根据 Coco 的标准输出构造统一执行结果，并补发必要摘要事件。"""
     stdout = result.stdout.strip()
     stderr = result.stderr.strip()
 
@@ -149,61 +115,55 @@ def main() -> int:
         try:
             payload = json.loads(stdout)
         except json.JSONDecodeError:
-            post_event(
-                args.bus_url,
-                {
-                    "type": "task.log",
-                    "task_id": task_id,
-                    "source": "coco-cli",
-                    "title": title,
-                    "line": summarize_text(stdout),
-                },
-            )
-            payload = {}
+            publish_log(context, stdout)
+            payload: dict[str, Any] = {}
         else:
             session_id = payload.get("session_id")
             if isinstance(session_id, str) and session_id:
-                post_event(
-                    args.bus_url,
-                    {
-                        "type": "task.summary",
-                        "task_id": task_id,
-                        "source": "coco-cli",
-                        "title": title,
-                        "summary": f"Coco session: {session_id}",
-                    },
-                )
+                publish_summary(context, f"Coco session: {session_id}")
     else:
         payload = {}
 
     final_message = extract_message_content(payload)
 
     if result.returncode == 0:
-        summary = final_message or f"Coco task completed in {duration}s"
-        post_event(
-            args.bus_url,
-            {
-                "type": "task.completed",
-                "task_id": task_id,
-                "source": "coco-cli",
-                "title": title,
-                "summary": summary,
-            },
+        return CommandOutcome(
+            returncode=0,
+            duration_seconds=duration,
+            stdout=stdout,
+            stderr=stderr,
+            final_message=final_message or f"Coco task completed in {duration}s",
         )
-        return 0
 
-    summary = extract_error_summary(stdout, stderr) or f"Coco task failed with exit code {result.returncode}"
-    post_event(
-        args.bus_url,
-        {
-            "type": "task.failed",
-            "task_id": task_id,
-            "source": "coco-cli",
-            "title": title,
-            "summary": summary,
-        },
+    return CommandOutcome(
+        returncode=result.returncode,
+        duration_seconds=duration,
+        stdout=stdout,
+        stderr=stderr,
+        final_message=extract_error_summary(stdout, stderr) or f"Coco task failed with exit code {result.returncode}",
     )
-    return result.returncode
+
+
+def main() -> int:
+    """运行 Coco，转发生命周期事件，并发布最终任务结果。"""
+    args = parse_args()
+    task_id = args.task_id or f"coco-{uuid.uuid4().hex[:12]}"
+    title = args.title
+    workdir = os.path.abspath(args.cd)
+    cmd = build_coco_command(args)
+    context = BridgeContext(
+        bus_url=args.bus_url,
+        task_id=task_id,
+        source="coco-cli",
+        title=title,
+        workdir=workdir,
+    )
+    return run_print_bridge(
+        context=context,
+        cmd=cmd,
+        started_summary=f"Running `coco -p --json` in {workdir}",
+        build_outcome=build_outcome,
+    )
 
 
 if __name__ == "__main__":

@@ -131,6 +131,8 @@ V1 是真正对外可用的最小版本，范围严格收敛：
 - 当前已支持 `codex-cli` bridge，可通过 `codex exec --json` 发布结构化生命周期事件。
 - 当前新增 `coco-cli` bridge，可通过 `coco -p --json` 发布最小任务生命周期事件。
 - `coco-cli` 当前优先保证 `started -> completed/failed` 闭环；由于一次性 JSON 输出模型，默认不提供细粒度中间进度事件。
+- CLI bridge 现已抽象成统一 adapter 骨架，按输出能力分为 `streaming adapter` 和 `print adapter` 两类。
+- 后续新增 CLI 应优先复用公共 bridge 能力，只补命令组装、输出解析和少量事件映射，而不是复制整份脚本。
 
 ### 宿主交互
 
