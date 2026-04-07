@@ -226,26 +226,19 @@ struct CapsuleRootView: View {
 
     /// 渲染收起态中间的状态槽，强化“灵动岛存在”而不是普通小控件。
     private var headerCompactCenter: some View {
-        HStack(spacing: 10) {
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.06),
-                            Color.white.opacity(0.015)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+        Capsule()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.06),
+                        Color.white.opacity(0.015)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
                 )
-                .frame(width: 74, height: 16)
-
-            Text(store.phase == .idle ? "Idle" : store.phase.label)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.52))
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 10)
+            )
+            .frame(width: 132, height: 16)
+            .padding(.horizontal, 10)
         .frame(height: 22)
         .background(Color.white.opacity(0.03))
         .overlay {
