@@ -8,6 +8,7 @@ enum TaskPhase: String {
     case awaitingApproval = "awaiting_approval"
     case completed
     case failed
+    case cancelled
 
     /// 将任务状态映射为胶囊上的强调色。
     var color: Color {
@@ -22,6 +23,8 @@ enum TaskPhase: String {
             return Color.green
         case .failed:
             return Color.red
+        case .cancelled:
+            return Color.gray.opacity(0.72)
         }
     }
 
@@ -38,6 +41,8 @@ enum TaskPhase: String {
             return "Completed"
         case .failed:
             return "Failed"
+        case .cancelled:
+            return "Cancelled"
         }
     }
 }
@@ -213,26 +218,6 @@ final class StatusStore: ObservableObject {
         return now.timeIntervalSince(lastExpandedAt) < 0.18
     }
 
-    /// 为当前活动任务发送批准动作。
-    func approve() {
-        performAction("approve", fallback: "No active task to approve.")
-    }
-
-    /// 为当前活动任务发送拒绝动作。
-    func reject() {
-        performAction("reject", fallback: "No active task to reject.")
-    }
-
-    /// 为当前活动任务发送重试动作。
-    func retry() {
-        performAction("retry", fallback: "No active task to retry.")
-    }
-
-    /// 标记当前界面是否存在可执行动作的活动任务。
-    var hasActiveTask: Bool {
-        currentTaskID != nil
-    }
-
     /// 根据当前状态返回更贴近留海形态的首选窗口尺寸。
     var preferredPanelSize: NSSize {
         if !isExpanded {
@@ -241,10 +226,9 @@ final class StatusStore: ObservableObject {
 
         let taskCount = min(recentTasks.count, 3)
         let recentTasksHeight = CGFloat(taskCount) * 42
-        let actionsHeight: CGFloat = hasActiveTask ? 56 : 0
-        let baseHeight: CGFloat = 150
-        let totalHeight = baseHeight + recentTasksHeight + actionsHeight
-        return NSSize(width: 480, height: max(320, totalHeight))
+        let baseHeight: CGFloat = 138
+        let totalHeight = baseHeight + recentTasksHeight
+        return NSSize(width: 480, height: max(272, totalHeight))
     }
 
     /// 连接事件总线、维持 SSE 长连接，并在断开后自动重试。
@@ -342,6 +326,8 @@ final class StatusStore: ObservableObject {
             return (300 - sourcePenalty, task.updatedAt)
         case .completed:
             return (200 - sourcePenalty, task.updatedAt)
+        case .cancelled:
+            return (180 - sourcePenalty, task.updatedAt)
         case .idle:
             return (100 - sourcePenalty, task.updatedAt)
         }
@@ -364,25 +350,6 @@ final class StatusStore: ObservableObject {
         summary = "Event bus offline at http://127.0.0.1:8765."
         onLayoutChange?()
     }
-
-    /// 向总线发送动作，并由后续实时流更新界面状态。
-    private func performAction(_ action: String, fallback: String) {
-        guard let currentTaskID else {
-            summary = fallback
-            return
-        }
-
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await client.postAction(taskID: currentTaskID, action: action)
-            } catch {
-                await MainActor.run {
-                    self.summary = "Failed to send \(action) to the local event bus."
-                }
-            }
-        }
-    }
 }
 
 extension TaskPhase {
@@ -397,6 +364,8 @@ extension TaskPhase {
             self = .completed
         case "failed":
             self = .failed
+        case "cancelled":
+            self = .cancelled
         default:
             self = .idle
         }

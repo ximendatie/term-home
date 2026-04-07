@@ -264,75 +264,52 @@ struct CapsuleRootView: View {
         .frame(width: 18, height: 18)
     }
 
-    /// 渲染展开态主体内容，包括当前任务、动作区和最近任务。
+    /// 渲染展开态主体内容，只保留状态、标题、详情和最近任务。
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             currentTaskSection
-
-            if store.hasActiveTask {
-                actionRow
-                    .padding(.top, 20)
-            }
-
             recentTasksSection
-                .padding(.top, store.hasActiveTask ? 22 : 18)
+                .padding(.top, 18)
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 16)
     }
 
-    /// 渲染当前任务概览，优先突出标题与状态。
+    /// 渲染当前任务概览，使用接近 Terminal 的文字层级突出标题与详情。
     private var currentTaskSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("当前任务")
-                    .font(.system(size: 14, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("status")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.72))
 
                 Text(store.phase.label)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(store.phase.color)
             }
 
             Text(store.title)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 16, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white)
                 .lineLimit(2)
 
             Text(store.summary)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 13, weight: .regular, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.6))
-                .lineLimit(2)
-        }
-    }
-
-    /// 渲染当前任务的核心动作按钮。
-    private var actionRow: some View {
-        HStack(spacing: 12) {
-            ActionPillButton(title: "允许", tint: .green.opacity(0.28), stroke: .green.opacity(0.7)) {
-                store.approve()
-            }
-
-            ActionPillButton(title: "拒绝", tint: .red.opacity(0.18), stroke: .red.opacity(0.52)) {
-                store.reject()
-            }
-
-            ActionPillButton(title: "重试", tint: .blue.opacity(0.2), stroke: .blue.opacity(0.62)) {
-                store.retry()
-            }
+                .lineLimit(3)
         }
     }
 
     /// 渲染最近任务列表，保持紧凑的展开态节奏。
     private var recentTasksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("最近任务")
-                .font(.system(size: 14, weight: .semibold))
+            Text("recent")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.74))
 
             if store.recentTasks.isEmpty {
-                Text("还没有最近任务。")
-                    .font(.system(size: 14, weight: .medium))
+                Text("No recent tasks.")
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.45))
             } else {
                 VStack(spacing: 12) {
@@ -354,14 +331,14 @@ struct CapsuleRootView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.96))
                     .lineLimit(1)
 
                 Text(task.summary.isEmpty ? task.phase.label : task.summary)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
 
             Spacer(minLength: 8)
@@ -371,39 +348,5 @@ struct CapsuleRootView: View {
                 .foregroundStyle(.white.opacity(0.28))
                 .padding(.top, 5)
         }
-    }
-}
-
-/// 统一渲染展开态操作区的胶囊按钮。
-private struct ActionPillButton: View {
-    let title: String
-    let tint: Color
-    let stroke: Color
-    let action: () -> Void
-
-    /// 创建一个带描边和半透明底色的胶囊按钮。
-    init(title: String, tint: Color, stroke: Color, action: @escaping () -> Void) {
-        self.title = title
-        self.tint = tint
-        self.stroke = stroke
-        self.action = action
-    }
-
-    /// 绘制按钮视觉样式，并保持与岛体整体风格一致。
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .frame(height: 42)
-                .background(tint)
-                .overlay {
-                    Capsule()
-                        .stroke(stroke, lineWidth: 1.5)
-                }
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
     }
 }

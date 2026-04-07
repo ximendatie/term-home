@@ -14,8 +14,8 @@
 - [x] 实现顶部胶囊 / notch 收起态。
 - [x] 实现点击展开的简单详情面板。
 - [x] 在原生界面中展示当前 1 个活动任务。
-- [x] 支持 `running` / `awaiting_approval` / `completed` / `failed` 四种核心状态。
-- [x] 支持 `approve` / `reject` / `retry` 三个核心动作。
+- [x] 支持 `running` / `completed` / `failed` / `cancelled` 为核心的状态监测展示。
+- [x] 移除原生壳层中的 `approve` / `reject` / `retry` 反馈式动作区。
 - [x] 接入 1 个真实 CLI / Agent 事件源（Codex CLI bridge）。
 - [x] 增加第 2 个真实 CLI 事件源（Coco CLI bridge）。
 - [x] 抽象统一 CLI bridge adapter，拆分 streaming / print 两类公共能力。
@@ -29,6 +29,7 @@
 - [x] 增加开发态任务清理入口，支持按 `task_id/status/source` 清理残留任务。
 - [x] 补充收起态命中展开、展开态点外部收起的宿主层交互。
 - [x] 展开时主动刷新快照，降低 SSE 漏刷带来的空状态问题。
+- [x] 将展开态排版收敛为仅展示 `title` / `detail` / `status`，字号风格向系统 Terminal 靠拢。
 
 ## V2 / Enhanced
 
@@ -44,7 +45,6 @@
 ## 当前待补强
 
 - [ ] 稳定真实 CLI `completed` 状态的最终落地，不再偶发停留在 `running`。
-- [ ] 完成 `approve / reject / retry` 到真实后端恢复执行的闭环。
 - [ ] 继续对齐 `claude-island` 的动画稳定性，减少展开 / 收起偶发抖动。
 - [ ] 继续排查 native 壳层与总线快照 / SSE 的同步稳定性。
 - [x] 修正 `th` / 通用命令 bridge 的输出回显行为，确保包装后原命令日志仍能持续显示在当前终端。
