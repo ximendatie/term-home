@@ -7,6 +7,12 @@ if [[ -z "${TERM_HOME_SESSION_OWNER_PID:-}" ]]; then
   export TERM_HOME_SESSION_OWNER_PID="$$"
 fi
 
+# 保存终端回跳所需的最小上下文，供 bridge 自动上报。
+export TERM_HOME_TERMINAL_APP="${TERM_HOME_TERMINAL_APP:-${TERM_PROGRAM:-}}"
+if [[ -z "${TERM_HOME_TTY:-}" ]]; then
+  export TERM_HOME_TTY="${TTY:-$(tty 2>/dev/null)}"
+fi
+
 # 用显式前缀将任意命令接入 term-home，保持普通 shell 命令行为不变。
 th() {
   python3 "${TERM_HOME_SCRIPTS_DIR}/term_home.py" run "$@"

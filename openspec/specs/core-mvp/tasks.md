@@ -23,6 +23,7 @@
 - [x] 增加统一入口 `term_home.py run`，封装通用命令 bridge。
 - [x] 增加 zsh 快捷函数 `th`，支持显式前缀接入 term-home。
 - [x] 为 `th` 增加 shell session id 注入，让同一 shell / tab 内的任务可归并到同一会话。
+- [x] 为 `th` 任务补充 `terminal_app` / `tty` / `cwd` 等元信息。
 - [x] 增加空状态、断连、非法事件兜底。
 - [x] 增加最小本地状态与最近少量任务展示。
 - [x] 修正主位任务选择逻辑，优先展示真实来源任务。
@@ -51,3 +52,10 @@
 - [x] 修正 `th` / 通用命令 bridge 的输出回显行为，确保包装后原命令日志仍能持续显示在当前终端。
 - [x] 修正 `th` / 通用命令 bridge 的 `Ctrl+C` 行为，避免前台长命令中断时输出 Python traceback，并将中断回写为 `cancelled`。
 - [x] 在 shell 退出时按 `session_id` 清理该 tab 对应的任务历史。
+- [x] 让展开态右箭头优先回跳到原始 terminal tab/session。
+- [x] 为回跳按钮增加明显的 hover 高亮，并拉开 enabled / disabled 差异。
+- [x] 让当前任务区也提供与最近任务一致的终端回跳入口。
+- [x] 让最近任务整行可展开 / 收起 detail，同时保留箭头单独负责 tab 回跳。
+- [x] 进一步增强箭头可见度与整行 hover 高亮，避免交互信号过弱。
+- [x] 修正最近任务箭头点击误触发展开 detail 的事件冲突。
+- [ ] 对不支持回跳的任务隐藏箭头，并将可用箭头统一成白色高对比样式。

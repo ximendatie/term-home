@@ -65,6 +65,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bus-url", default=DEFAULT_BUS_URL, help="term-home bus base URL.")
     parser.add_argument("--cd", default=".", help="Working directory for the command.")
     parser.add_argument(
+        "--terminal-app",
+        default=os.environ.get("TERM_HOME_TERMINAL_APP", os.environ.get("TERM_PROGRAM", "")),
+        help="Terminal application name used for jump-back.",
+    )
+    parser.add_argument(
+        "--tty",
+        default=os.environ.get("TERM_HOME_TTY", os.environ.get("TTY", "")),
+        help="TTY path used to locate the original terminal tab/session.",
+    )
+    parser.add_argument(
         "--ready-pattern",
         action="append",
         default=[],
@@ -140,6 +150,9 @@ def main(argv: list[str] | None = None) -> int:
         title=args.title or derive_title(command),
         workdir=os.path.abspath(args.cd),
         session_id=args.session_id,
+        terminal_app=args.terminal_app,
+        tty=args.tty,
+        cwd=os.path.abspath(args.cd),
     )
     ready_patterns = compile_ready_patterns(args.ready_pattern)
     state = CommandRuntimeState()

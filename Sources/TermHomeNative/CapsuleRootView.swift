@@ -73,6 +73,7 @@ struct NotchShape: Shape {
 /// 原生顶部岛体主视图，负责收起态与展开态的统一骨架。
 struct CapsuleRootView: View {
     @ObservedObject var store: StatusStore
+    @State private var expandedRecentTaskID: String?
 
     /// 返回当前状态下的顶部内圆角半径。
     private var topCornerRadius: CGFloat {
@@ -286,6 +287,15 @@ struct CapsuleRootView: View {
                 Text(store.phase.label)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(store.phase.color)
+
+                Spacer(minLength: 8)
+
+                if let currentTask = store.currentTask,
+                   store.canOpenInTerminal(currentTask) {
+                    TerminalJumpButton(isEnabled: true) {
+                        store.openInTerminal(currentTask)
+                    }
+                }
             }
 
             Text(store.title)
@@ -323,30 +333,184 @@ struct CapsuleRootView: View {
 
     /// 渲染单条最近任务，保证信息密度接近参考实现。
     private func recentTaskRow(_ task: RemoteTask) -> some View {
+        RecentTaskCard(
+            task: task,
+            isExpanded: expandedRecentTaskID == task.id,
+            canJump: store.canOpenInTerminal(task),
+            onToggle: {
+                if expandedRecentTaskID == task.id {
+                    expandedRecentTaskID = nil
+                } else {
+                    expandedRecentTaskID = task.id
+                }
+            },
+            onJump: {
+                store.openInTerminal(task)
+            }
+        )
+    }
+}
+
+/// 统一渲染“回跳原始终端”按钮，提供一致的 hover 与 press 反馈。
+private struct TerminalJumpButton: View {
+    let isEnabled: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    /// 创建用于当前任务区和最近任务区的统一回跳按钮。
+    init(isEnabled: Bool, action: @escaping () -> Void) {
+        self.isEnabled = isEnabled
+        self.action = action
+    }
+
+    /// 绘制带 hover 和按压反馈的回跳图标按钮。
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 26, height: 22)
+                .background(backgroundColor)
+                .overlay {
+                    Capsule()
+                        .stroke(borderColor, lineWidth: 1)
+                }
+                .clipShape(Capsule())
+                .scaleEffect(isHovered && isEnabled ? 1.06 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .animation(.easeOut(duration: 0.14), value: isHovered)
+    }
+
+    /// 根据状态返回更容易感知的图标颜色。
+    private var iconColor: Color {
+        return .white.opacity(0.96)
+    }
+
+    /// 根据状态返回按钮底色，强化 hover 的存在感。
+    private var backgroundColor: Color {
+        return isHovered ? .blue.opacity(0.28) : .white.opacity(0.09)
+    }
+
+    /// 为按钮补稳定轮廓，避免 disabled 时几乎看不见。
+    private var borderColor: Color {
+        return isHovered ? .blue.opacity(0.72) : .white.opacity(0.18)
+    }
+}
+
+/// 渲染最近任务卡片，整行负责展开 detail，箭头单独负责回跳 terminal。
+private struct RecentTaskCard: View {
+    let task: RemoteTask
+    let isExpanded: Bool
+    let canJump: Bool
+    let onToggle: () -> Void
+    let onJump: () -> Void
+
+    @State private var isHovered = false
+
+    /// 创建一条同时具备详情展开和 terminal 回跳能力的最近任务卡片。
+    init(
+        task: RemoteTask,
+        isExpanded: Bool,
+        canJump: Bool,
+        onToggle: @escaping () -> Void,
+        onJump: @escaping () -> Void
+    ) {
+        self.task = task
+        self.isExpanded = isExpanded
+        self.canJump = canJump
+        self.onToggle = onToggle
+        self.onJump = onJump
+    }
+
+    /// 绘制整行 hover 高亮、detail 展开和箭头回跳的组合交互。
+    var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
                 .fill(task.phase.color.opacity(0.9))
                 .frame(width: 9, height: 9)
                 .padding(.top, 7)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.96))
-                    .lineLimit(1)
+            Button(action: onToggle) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.96))
+                        .lineLimit(1)
 
-                Text(task.summary.isEmpty ? task.phase.label : task.summary)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .lineLimit(2)
+                    Text(task.summary.isEmpty ? task.phase.label : task.summary)
+                        .font(.system(size: 13, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(isExpanded ? 6 : 2)
+
+                    if isExpanded {
+                        VStack(alignment: .leading, spacing: 3) {
+                            if !task.phase.label.isEmpty {
+                                detailRow(label: "status", value: task.phase.label)
+                            }
+                            if !task.source.isEmpty {
+                                detailRow(label: "source", value: task.source)
+                            }
+                            if !task.cwd.isEmpty {
+                                detailRow(label: "cwd", value: task.cwd)
+                            }
+                            if !task.tty.isEmpty {
+                                detailRow(label: "tty", value: task.tty)
+                            }
+                        }
+                        .padding(.top, 6)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             Spacer(minLength: 8)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.28))
-                .padding(.top, 5)
+            if canJump {
+                TerminalJumpButton(isEnabled: true, action: onJump)
+                    .padding(.top, 1)
+            }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(rowBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .animation(.easeOut(duration: 0.16), value: isHovered)
+        .animation(.easeOut(duration: 0.18), value: isExpanded)
+    }
+
+    /// 渲染展开态中的明细键值对，保持 Terminal 风格的信息密度。
+    private func detailRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.38))
+                .frame(width: 42, alignment: .leading)
+
+            Text(value)
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.58))
+                .lineLimit(3)
+        }
+    }
+
+    /// 根据 hover 与展开状态返回更明显的整行高亮背景。
+    private var rowBackground: Color {
+        if isExpanded {
+            return .white.opacity(0.16)
+        }
+        if isHovered {
+            return .white.opacity(0.14)
+        }
+        return .white.opacity(0.05)
     }
 }

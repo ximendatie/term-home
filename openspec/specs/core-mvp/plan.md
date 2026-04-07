@@ -62,6 +62,13 @@
 - 修正 `th` / 通用命令 bridge 的终端输出语义：包装后仍需回显原始 stdout/stderr，避免前台长命令变成“无输出黑屏”。
 - 为 `th` 增加 shell session 语义，让同一 tab 内的任务共享一个 `session_id`。
 - 在 shell 正常退出时自动清理该 `session_id` 下的任务历史，使“关 tab 即清空当前 tab 任务”成立。
+- 为 `th` 任务补充 terminal 元信息（如 `terminal_app` / `tty` / `cwd`），让 native UI 能按右箭头回跳原 tab。
+- 让当前任务区与最近任务区共用同一套回跳交互，减少入口不一致。
+- 为回跳按钮补 hover / press 态，减少“图标存在但不可感知”的问题。
+- 将最近任务行拆成双重交互：整行展开 detail，箭头回跳 tab，并显著拉开 enabled/disabled 视觉差异。
+- 继续增强最近任务行的 hover 高亮和箭头可见度，优先解决“看不到交互”的问题。
+- 修正最近任务行的事件竞争，确保箭头点击只执行 terminal 回跳，不会误触发展开 detail。
+- 对缺少 terminal 元信息的任务直接隐藏箭头，只对可回跳任务展示纯白高对比入口。
 
 ## 后续阶段（V2 / Enhanced）
 

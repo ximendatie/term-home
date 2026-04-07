@@ -33,6 +33,9 @@ class BridgeContext:
     title: str
     workdir: str
     session_id: str = ""
+    terminal_app: str = ""
+    tty: str = ""
+    cwd: str = ""
 
 
 @dataclass(frozen=True)
@@ -73,10 +76,17 @@ def summarize_text(text: str, limit: int = 200) -> str:
 
 
 def enrich_with_session(context: BridgeContext, payload: dict[str, Any]) -> dict[str, Any]:
-    """在存在 session id 时，把会话归属写入事件载荷。"""
+    """在存在会话或终端元信息时，把这些上下文写入事件载荷。"""
+    enriched = dict(payload)
     if context.session_id:
-        return {**payload, "session_id": context.session_id}
-    return payload
+        enriched["session_id"] = context.session_id
+    if context.terminal_app:
+        enriched["terminal_app"] = context.terminal_app
+    if context.tty:
+        enriched["tty"] = context.tty
+    if context.cwd:
+        enriched["cwd"] = context.cwd
+    return enriched
 
 
 def publish_started(context: BridgeContext, summary: str) -> None:

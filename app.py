@@ -41,6 +41,9 @@ class TaskState:
 
     task_id: str
     session_id: str = ""
+    terminal_app: str = ""
+    tty: str = ""
+    cwd: str = ""
     source: str = "unknown"
     status: str = "running"
     title: str = "Untitled task"
@@ -78,6 +81,9 @@ class EventBus:
         with self._lock:
             task = self._tasks.get(task_id) or TaskState(task_id=task_id)
             task.session_id = event.get("session_id", task.session_id)
+            task.terminal_app = event.get("terminal_app", task.terminal_app)
+            task.tty = event.get("tty", task.tty)
+            task.cwd = event.get("cwd", task.cwd)
             task.source = event.get("source", task.source)
             task.title = event.get("title", task.title)
             task.updated_at = time.time()

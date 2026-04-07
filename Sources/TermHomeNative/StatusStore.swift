@@ -50,6 +50,10 @@ enum TaskPhase: String {
 /// Python 事件总线快照接口返回的任务结构。
 struct RemoteTask: Decodable, Identifiable {
     let taskID: String
+    let sessionID: String
+    let terminalApp: String
+    let tty: String
+    let cwd: String
     let source: String
     let status: String
     let title: String
@@ -64,6 +68,10 @@ struct RemoteTask: Decodable, Identifiable {
     /// 将 snake_case 的接口字段映射为 Swift 风格属性名。
     enum CodingKeys: String, CodingKey {
         case taskID = "task_id"
+        case sessionID = "session_id"
+        case terminalApp = "terminal_app"
+        case tty
+        case cwd
         case source
         case status
         case title
@@ -71,6 +79,23 @@ struct RemoteTask: Decodable, Identifiable {
         case progress
         case updatedAt = "updated_at"
         case logs
+    }
+
+    /// 兼容旧任务快照中缺失的新字段，避免一次 schema 增量导致整个列表解码失败。
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        taskID = try container.decode(String.self, forKey: .taskID)
+        sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID) ?? ""
+        terminalApp = try container.decodeIfPresent(String.self, forKey: .terminalApp) ?? ""
+        tty = try container.decodeIfPresent(String.self, forKey: .tty) ?? ""
+        cwd = try container.decodeIfPresent(String.self, forKey: .cwd) ?? ""
+        source = try container.decode(String.self, forKey: .source)
+        status = try container.decode(String.self, forKey: .status)
+        title = try container.decode(String.self, forKey: .title)
+        summary = try container.decode(String.self, forKey: .summary)
+        progress = try container.decodeIfPresent(Int.self, forKey: .progress)
+        updatedAt = try container.decode(Double.self, forKey: .updatedAt)
+        logs = try container.decodeIfPresent([String].self, forKey: .logs) ?? []
     }
 }
 
@@ -167,6 +192,7 @@ final class StatusStore: ObservableObject {
     @Published var summary = "Waiting for the local event bus."
     @Published var isExpanded = false
     @Published var recentTasks: [RemoteTask] = []
+    @Published var currentTask: RemoteTask?
 
     var onLayoutChange: (() -> Void)?
 
@@ -231,6 +257,24 @@ final class StatusStore: ObservableObject {
         return NSSize(width: 480, height: max(272, totalHeight))
     }
 
+    /// 判断任务是否具备足够的终端元信息，支持回跳到原 tab。
+    func canOpenInTerminal(_ task: RemoteTask) -> Bool {
+        !task.tty.isEmpty && !task.terminalApp.isEmpty
+    }
+
+    /// 按任务携带的终端元信息尝试回跳到原始 terminal tab/session。
+    func openInTerminal(_ task: RemoteTask) {
+        guard canOpenInTerminal(task) else { return }
+
+        let script = appleScriptForTerminalJump(task: task)
+        guard !script.isEmpty else { return }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        try? process.run()
+    }
+
     /// 连接事件总线、维持 SSE 长连接，并在断开后自动重试。
     private func connect() {
         streamTask = Task { [weak self] in
@@ -266,6 +310,7 @@ final class StatusStore: ObservableObject {
             applyCurrentTask(current)
         } else {
             currentTaskID = nil
+            currentTask = nil
             phase = .idle
             title = "term-home"
             summary = "No active tasks from the local event bus."
@@ -336,6 +381,7 @@ final class StatusStore: ObservableObject {
     /// 将顶部任务同步到胶囊头部的显著展示状态。
     private func applyCurrentTask(_ task: RemoteTask) {
         currentTaskID = task.taskID
+        currentTask = task
         phase = task.phase
         title = task.title
         summary = task.summary.isEmpty ? "No summary yet." : task.summary
@@ -344,11 +390,57 @@ final class StatusStore: ObservableObject {
     /// 在无法连接事件总线时应用清晰的离线兜底状态。
     private func handleDisconnect() {
         currentTaskID = nil
+        currentTask = nil
         recentTasks = []
         phase = .idle
         title = "term-home"
         summary = "Event bus offline at http://127.0.0.1:8765."
         onLayoutChange?()
+    }
+
+    /// 按已知 terminal 类型生成对应的 AppleScript 回跳脚本。
+    private func appleScriptForTerminalJump(task: RemoteTask) -> String {
+        let escapedTTY = task.tty.replacingOccurrences(of: "\"", with: "\\\"")
+
+        if task.terminalApp == "Apple_Terminal" || task.terminalApp == "Terminal" {
+            return """
+            set targetTTY to "\(escapedTTY)"
+            tell application "Terminal"
+                activate
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        if tty of t is targetTTY then
+                            set selected tab of w to t
+                            set index of w to 1
+                            return
+                        end if
+                    end repeat
+                end repeat
+            end tell
+            """
+        }
+
+        if task.terminalApp == "iTerm.app" || task.terminalApp == "iTerm2" || task.terminalApp == "iTerm" {
+            return """
+            set targetTTY to "\(escapedTTY)"
+            tell application id "com.googlecode.iterm2"
+                activate
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        repeat with s in sessions of t
+                            if tty of s is targetTTY then
+                                select t
+                                set index of w to 1
+                                return
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+            """
+        }
+
+        return ""
     }
 }
 
