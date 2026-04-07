@@ -332,3 +332,57 @@ python3 scripts/run_coco_print.py "请用一句话说明当前 native MVP 是否
 - 能展示最终摘要
 
 由于 `coco -p --json` 默认是一次性输出，所以当前不会像 Codex bridge 那样提供细粒度流式进度事件。
+
+### 通用命令监听
+
+如果你只想监听最简单的命令生命周期，可以直接用统一入口：
+
+```bash
+python3 scripts/term_home.py run -- npm run dev
+```
+
+它会把命令纳入 `term-home`，并提供最小状态链路：
+
+- started
+- running
+- completed
+- failed
+
+如果命令会输出“服务已启动”之类的文案，可以加 ready pattern：
+
+```bash
+python3 scripts/term_home.py run \
+  --ready-pattern "ready in|Local:|compiled successfully|running at" \
+  -- npm run dev
+```
+
+默认标题会从原始命令自动推导，所以可以直接写：
+
+```bash
+python3 scripts/term_home.py run -- npm run dev
+```
+
+也可以显式指定标题：
+
+```bash
+python3 scripts/term_home.py run --title "web dev" -- npm run dev
+```
+
+### zsh 集成
+
+如果你希望用显式前缀而不是手敲完整命令，可以在 `~/.zshrc` 里加入：
+
+```zsh
+source /Users/bytedance/Desktop/term-home/scripts/th.zsh
+```
+
+之后就可以这样用：
+
+```bash
+th npm run dev
+th pnpm dev
+th python app.py
+th --title "api dev" -- npm run dev
+```
+
+这种方式只会监听你显式加了 `th` 前缀的命令，不会自动包裹全部 shell 指令。

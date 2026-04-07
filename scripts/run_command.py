@@ -44,13 +44,18 @@ class CommandRuntimeState:
     last_meaningful_line: str = ""
 
 
+def derive_title(command: list[str]) -> str:
+    """根据原始命令推导一个更自然的默认标题。"""
+    return summarize_text(" ".join(command), limit=48) or "Shell Command"
+
+
 def build_parser() -> argparse.ArgumentParser:
     """构建通用命令桥接的参数解析器。"""
     parser = argparse.ArgumentParser(
         description="Run an arbitrary command and publish lifecycle events to the local term-home bus."
     )
     parser.add_argument("--task-id", help="Optional fixed task id. Defaults to a generated id.")
-    parser.add_argument("--title", default="Shell Command", help="Task title shown in the native shell.")
+    parser.add_argument("--title", help="Task title shown in the native shell.")
     parser.add_argument("--source", default="shell-command", help="Task source shown in the native shell.")
     parser.add_argument("--bus-url", default=DEFAULT_BUS_URL, help="term-home bus base URL.")
     parser.add_argument("--cd", default=".", help="Working directory for the command.")
@@ -127,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         bus_url=args.bus_url,
         task_id=args.task_id or f"cmd-{uuid.uuid4().hex[:12]}",
         source=args.source,
-        title=args.title,
+        title=args.title or derive_title(command),
         workdir=os.path.abspath(args.cd),
     )
     ready_patterns = compile_ready_patterns(args.ready_pattern)

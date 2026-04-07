@@ -158,6 +158,25 @@ def publish_failed(context: BridgeContext, summary: str) -> None:
     )
 
 
+def publish_cancelled(context: BridgeContext, summary: str) -> None:
+    """发布任务取消事件。"""
+    post_event(
+        context.bus_url,
+        {
+            "type": "task.cancelled",
+            "task_id": context.task_id,
+            "source": context.source,
+            "title": context.title,
+            "summary": summary,
+        },
+    )
+
+
+def echo_stream_line(line: str) -> None:
+    """将子进程输出原样回显到当前终端，保持前台命令的可观察性。"""
+    print(line, flush=True)
+
+
 def trim_remainder_args(values: list[str]) -> list[str]:
     """清理 `argparse.REMAINDER` 前缀中的哨兵 `--`。"""
     if values and values[0] == "--":
@@ -185,13 +204,25 @@ def run_streaming_bridge(
     )
 
     assert process.stdout is not None
-    for raw_line in process.stdout:
-        line = raw_line.rstrip("\n")
-        if not line:
-            continue
-        handle_line(context, line)
+    try:
+        for raw_line in process.stdout:
+            line = raw_line.rstrip("\n")
+            if not line:
+                continue
+            echo_stream_line(line)
+            handle_line(context, line)
+        exit_code = process.wait()
+    except KeyboardInterrupt:
+        process.terminate()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+        duration = max(1, int(time.time() - started_at))
+        publish_cancelled(context, f"{context.source} task interrupted by user after {duration}s")
+        return 130
 
-    exit_code = process.wait()
     duration = max(1, int(time.time() - started_at))
     outcome = build_outcome(exit_code, duration)
     if outcome.returncode == 0:

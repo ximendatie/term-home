@@ -137,6 +137,9 @@ V1 是真正对外可用的最小版本，范围严格收敛：
 - 后续新增 CLI 应优先复用公共 bridge 能力，只补命令组装、输出解析和少量事件映射，而不是复制整份脚本。
 - 通用命令 bridge 的第一版只保证 `started -> running -> completed/failed`，并可通过可选 `ready-pattern` 更新“服务已启动”类摘要，不负责深度语义理解。
 - 为避免入口分散，当前新增统一命令入口 `term_home.py run -- <command>`，底层复用通用命令 bridge。
+- 当前新增 zsh 快捷函数 `th`，允许用户通过显式前缀把命令纳入 term-home，而不是自动包裹全部 shell 指令。
+- `th <command>` 当前采用前台包装模型：被桥接的长命令会正常占用当前终端；用户主动 `Ctrl+C` 时，bridge 必须将其视为一次显式取消，优雅终止子进程并回写 `cancelled`，而不是输出 Python traceback。
+- `th <command>` 不应吞掉原命令的终端输出；被桥接命令的 stdout/stderr 仍应持续回显到当前终端，同时再同步到 term-home 总线，避免用户误以为命令卡死。
 
 ### 宿主交互
 

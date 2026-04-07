@@ -21,6 +21,7 @@
 - [x] 抽象统一 CLI bridge adapter，拆分 streaming / print 两类公共能力。
 - [x] 增加通用命令 bridge，支持包装任意本地命令并发布 started/running/completed/failed。
 - [x] 增加统一入口 `term_home.py run`，封装通用命令 bridge。
+- [x] 增加 zsh 快捷函数 `th`，支持显式前缀接入 term-home。
 - [x] 增加空状态、断连、非法事件兜底。
 - [x] 增加最小本地状态与最近少量任务展示。
 - [x] 修正主位任务选择逻辑，优先展示真实来源任务。
@@ -46,3 +47,5 @@
 - [ ] 完成 `approve / reject / retry` 到真实后端恢复执行的闭环。
 - [ ] 继续对齐 `claude-island` 的动画稳定性，减少展开 / 收起偶发抖动。
 - [ ] 继续排查 native 壳层与总线快照 / SSE 的同步稳定性。
+- [x] 修正 `th` / 通用命令 bridge 的输出回显行为，确保包装后原命令日志仍能持续显示在当前终端。
+- [x] 修正 `th` / 通用命令 bridge 的 `Ctrl+C` 行为，避免前台长命令中断时输出 Python traceback，并将中断回写为 `cancelled`。
