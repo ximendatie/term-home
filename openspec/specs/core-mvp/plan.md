@@ -42,6 +42,11 @@
 - 跑通 `running -> awaiting_approval -> approve/reject -> completed/failed` 闭环。
 - 完成原生形态下的最小使用验证。
 
+### Phase 7.2 — Additional CLI Bridges
+- 在保留统一事件契约的前提下，扩展更多可脚本化 CLI。
+- 优先接入支持一次性结构化输出的 CLI，降低 bridge 复杂度。
+- 对不同 CLI 的输出能力分层：能流式就映射进度，只能一次性输出就先保证完成态闭环。
+
 ### Phase 7.5 — Runtime And Interaction Hardening
 - 修正原生壳层与本地总线之间的快照 / SSE 同步问题。
 - 修正顶部主位任务选择逻辑，优先展示真实来源任务。

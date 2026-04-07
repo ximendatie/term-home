@@ -302,3 +302,33 @@ python3 scripts/run_codex_exec.py \
   --title "Codex native MVP check" \
   "检查当前原生 MVP 还缺哪些能力"
 ```
+
+### Coco CLI 接入（新增真实来源）
+
+当前仓库也提供了一个最小可用的 Coco CLI 桥接脚本：
+
+```bash
+python3 scripts/run_coco_print.py "请用一句话说明当前 native MVP 是否已经接入真实 CLI。"
+```
+
+推荐按下面顺序运行：
+
+```bash
+python3 app.py
+swift run TermHomeNative
+python3 scripts/run_coco_print.py "请用一句话说明当前 native MVP 是否已经接入真实 CLI。"
+```
+
+桥接脚本会：
+
+- 启动 `coco -p --json`
+- 将最终 JSON 输出映射成 `term-home` 任务结果
+- 把最终结果写成 `completed` 或 `failed`
+
+当前 `coco` bridge 先保证最小闭环：
+
+- 有 `started`
+- 有 `completed / failed`
+- 能展示最终摘要
+
+由于 `coco -p --json` 默认是一次性输出，所以当前不会像 Codex bridge 那样提供细粒度流式进度事件。

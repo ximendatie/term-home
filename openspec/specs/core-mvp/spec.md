@@ -126,6 +126,12 @@ V1 是真正对外可用的最小版本，范围严格收敛：
 - 当前动作能力属于“事件回写可用”，还不是“真实 CLI 后端恢复执行闭环已完成”。
 - `retry` 与 `approve` 目前会更新任务摘要；`reject` 可落到失败态；真实后端恢复仍需继续补齐。
 
+### CLI 接入
+
+- 当前已支持 `codex-cli` bridge，可通过 `codex exec --json` 发布结构化生命周期事件。
+- 当前新增 `coco-cli` bridge，可通过 `coco -p --json` 发布最小任务生命周期事件。
+- `coco-cli` 当前优先保证 `started -> completed/failed` 闭环；由于一次性 JSON 输出模型，默认不提供细粒度中间进度事件。
+
 ### 宿主交互
 
 - 收起态点击岛体区域可展开。

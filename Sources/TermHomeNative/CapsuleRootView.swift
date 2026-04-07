@@ -239,12 +239,6 @@ struct CapsuleRootView: View {
                     )
                 )
                 .frame(width: 74, height: 16)
-                .overlay(alignment: .leading) {
-                    Circle()
-                        .fill(store.phase.color)
-                        .frame(width: 8, height: 8)
-                        .padding(.leading, 5)
-                }
 
             Text(store.phase == .idle ? "Idle" : store.phase.label)
                 .font(.system(size: 11, weight: .semibold))
