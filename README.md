@@ -377,3 +377,11 @@ th --title "api dev" -- npm run dev
 ```
 
 这种方式只会监听你显式加了 `th` 前缀的命令，不会自动包裹全部 shell 指令。
+
+当前 `th` 还带有一个轻量 session 语义：
+
+- 每个 shell / tab 在首次加载 `th.zsh` 时会生成一个稳定的 `session_id`
+- 这个 shell / tab 内所有 `th ...` 任务都会挂到同一个 session 下
+- 当你正常关闭这个 tab 时，`term-home` 会自动清理这个 session 下的任务
+
+这样当前行为更接近“按 tab 管理任务”，而不是单纯把所有历史都永久堆在一起。

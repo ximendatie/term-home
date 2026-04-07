@@ -55,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run an arbitrary command and publish lifecycle events to the local term-home bus."
     )
     parser.add_argument("--task-id", help="Optional fixed task id. Defaults to a generated id.")
+    parser.add_argument(
+        "--session-id",
+        default=os.environ.get("TERM_HOME_SESSION_ID", ""),
+        help="Optional shell session id used to group tasks by tab-like session.",
+    )
     parser.add_argument("--title", help="Task title shown in the native shell.")
     parser.add_argument("--source", default="shell-command", help="Task source shown in the native shell.")
     parser.add_argument("--bus-url", default=DEFAULT_BUS_URL, help="term-home bus base URL.")
@@ -134,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         source=args.source,
         title=args.title or derive_title(command),
         workdir=os.path.abspath(args.cd),
+        session_id=args.session_id,
     )
     ready_patterns = compile_ready_patterns(args.ready_pattern)
     state = CommandRuntimeState()

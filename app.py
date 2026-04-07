@@ -40,6 +40,7 @@ class TaskState:
     """单个任务的归一化运行时视图。"""
 
     task_id: str
+    session_id: str = ""
     source: str = "unknown"
     status: str = "running"
     title: str = "Untitled task"
@@ -76,6 +77,7 @@ class EventBus:
 
         with self._lock:
             task = self._tasks.get(task_id) or TaskState(task_id=task_id)
+            task.session_id = event.get("session_id", task.session_id)
             task.source = event.get("source", task.source)
             task.title = event.get("title", task.title)
             task.updated_at = time.time()
@@ -159,6 +161,7 @@ class EventBus:
     def cleanup(
         self,
         task_ids: list[str] | None = None,
+        session_ids: list[str] | None = None,
         statuses: list[str] | None = None,
         sources: list[str] | None = None,
         remove_all: bool = False,
@@ -166,6 +169,7 @@ class EventBus:
         """按条件删除开发态残留任务，并返回本次清理结果。"""
         with self._lock:
             ids_filter = set(task_ids or [])
+            sessions_filter = set(session_ids or [])
             statuses_filter = set(statuses or [])
             sources_filter = set(sources or [])
             removed_ids: list[str] = []
@@ -173,6 +177,8 @@ class EventBus:
             for task_id, task in list(self._tasks.items()):
                 should_remove = remove_all
                 if ids_filter and task_id in ids_filter:
+                    should_remove = True
+                if sessions_filter and task.session_id in sessions_filter:
                     should_remove = True
                 if statuses_filter and task.status in statuses_filter:
                     should_remove = True
@@ -186,6 +192,7 @@ class EventBus:
             result = {
                 "removed": len(removed_ids),
                 "removed_task_ids": removed_ids,
+                "session_ids": sorted(sessions_filter),
                 "remaining": len(self._tasks),
             }
             payload = f"event: cleanup\ndata: {json.dumps(result, ensure_ascii=False)}\n\n"
@@ -288,6 +295,7 @@ class Handler(BaseHTTPRequestHandler):
         if p.path == "/admin/cleanup":
             result = BUS.cleanup(
                 task_ids=body.get("task_ids"),
+                session_ids=body.get("session_ids"),
                 statuses=body.get("statuses"),
                 sources=body.get("sources"),
                 remove_all=bool(body.get("all")),

@@ -22,6 +22,7 @@
 - [x] 增加通用命令 bridge，支持包装任意本地命令并发布 started/running/completed/failed。
 - [x] 增加统一入口 `term_home.py run`，封装通用命令 bridge。
 - [x] 增加 zsh 快捷函数 `th`，支持显式前缀接入 term-home。
+- [x] 为 `th` 增加 shell session id 注入，让同一 shell / tab 内的任务可归并到同一会话。
 - [x] 增加空状态、断连、非法事件兜底。
 - [x] 增加最小本地状态与最近少量任务展示。
 - [x] 修正主位任务选择逻辑，优先展示真实来源任务。
@@ -49,3 +50,4 @@
 - [ ] 继续排查 native 壳层与总线快照 / SSE 的同步稳定性。
 - [x] 修正 `th` / 通用命令 bridge 的输出回显行为，确保包装后原命令日志仍能持续显示在当前终端。
 - [x] 修正 `th` / 通用命令 bridge 的 `Ctrl+C` 行为，避免前台长命令中断时输出 Python traceback，并将中断回写为 `cancelled`。
+- [x] 在 shell 退出时按 `session_id` 清理该 tab 对应的任务历史。

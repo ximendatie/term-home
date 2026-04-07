@@ -32,6 +32,7 @@ class BridgeContext:
     source: str
     title: str
     workdir: str
+    session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -71,29 +72,36 @@ def summarize_text(text: str, limit: int = 200) -> str:
     return f"{compact[: max(0, limit - 3)]}..."
 
 
+def enrich_with_session(context: BridgeContext, payload: dict[str, Any]) -> dict[str, Any]:
+    """在存在 session id 时，把会话归属写入事件载荷。"""
+    if context.session_id:
+        return {**payload, "session_id": context.session_id}
+    return payload
+
+
 def publish_started(context: BridgeContext, summary: str) -> None:
     """发布任务开始事件。"""
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.started",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "summary": summary,
-        },
+        }),
     )
 
 
 def publish_progress(context: BridgeContext, summary: str, progress: int | None = None) -> None:
     """发布任务进行中事件。"""
-    payload: dict[str, Any] = {
+    payload: dict[str, Any] = enrich_with_session(context, {
         "type": "task.progress",
         "task_id": context.task_id,
         "source": context.source,
         "title": context.title,
         "summary": summary,
-    }
+    })
     if progress is not None:
         payload["progress"] = progress
     post_event(context.bus_url, payload)
@@ -103,13 +111,13 @@ def publish_summary(context: BridgeContext, summary: str) -> None:
     """发布任务摘要事件。"""
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.summary",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "summary": summary,
-        },
+        }),
     )
 
 
@@ -120,13 +128,13 @@ def publish_log(context: BridgeContext, line: str) -> None:
         return
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.log",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "line": compact,
-        },
+        }),
     )
 
 
@@ -134,13 +142,13 @@ def publish_completed(context: BridgeContext, summary: str) -> None:
     """发布任务完成事件。"""
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.completed",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "summary": summary,
-        },
+        }),
     )
 
 
@@ -148,13 +156,13 @@ def publish_failed(context: BridgeContext, summary: str) -> None:
     """发布任务失败事件。"""
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.failed",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "summary": summary,
-        },
+        }),
     )
 
 
@@ -162,13 +170,13 @@ def publish_cancelled(context: BridgeContext, summary: str) -> None:
     """发布任务取消事件。"""
     post_event(
         context.bus_url,
-        {
+        enrich_with_session(context, {
             "type": "task.cancelled",
             "task_id": context.task_id,
             "source": context.source,
             "title": context.title,
             "summary": summary,
-        },
+        }),
     )
 
 

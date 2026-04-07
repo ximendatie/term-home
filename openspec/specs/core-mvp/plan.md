@@ -60,6 +60,8 @@
 - 继续收敛展开 / 收起动画结构，减少宿主焦点与布局重算带来的不稳定。
 - 修正 `th` / 通用命令 bridge 的前台中断语义：长运行命令允许占用终端，但用户 `Ctrl+C` 时必须优雅取消，不抛 Python traceback。
 - 修正 `th` / 通用命令 bridge 的终端输出语义：包装后仍需回显原始 stdout/stderr，避免前台长命令变成“无输出黑屏”。
+- 为 `th` 增加 shell session 语义，让同一 tab 内的任务共享一个 `session_id`。
+- 在 shell 正常退出时自动清理该 `session_id` 下的任务历史，使“关 tab 即清空当前 tab 任务”成立。
 
 ## 后续阶段（V2 / Enhanced）
 
