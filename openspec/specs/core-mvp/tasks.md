@@ -22,6 +22,8 @@
 - [x] 增加通用命令 bridge，支持包装任意本地命令并发布 started/running/completed/failed。
 - [x] 增加统一入口 `term_home.py run`，封装通用命令 bridge。
 - [x] 增加 zsh 快捷函数 `th`，支持显式前缀接入 term-home。
+- [x] 增加 `th-codex` 快捷函数，供需要直接占用 TTY 的 Codex 走专用 bridge。
+- [x] 让 `th-codex` 自动透传 session / terminal 元信息，并在缺少 prompt 时返回清晰用法提示。
 - [x] 为 `th` 增加 shell session id 注入，让同一 shell / tab 内的任务可归并到同一会话。
 - [x] 为 `th` 任务补充 `terminal_app` / `tty` / `cwd` 等元信息。
 - [x] 增加空状态、断连、非法事件兜底。
@@ -58,4 +60,8 @@
 - [x] 让最近任务整行可展开 / 收起 detail，同时保留箭头单独负责 tab 回跳。
 - [x] 进一步增强箭头可见度与整行 hover 高亮，避免交互信号过弱。
 - [x] 修正最近任务箭头点击误触发展开 detail 的事件冲突。
-- [ ] 对不支持回跳的任务隐藏箭头，并将可用箭头统一成白色高对比样式。
+- [x] 对不支持回跳的任务隐藏箭头，并将可用箭头统一成白色高对比样式。
+- [x] 将最近列表改为按 shell session 近似 tab 聚合，并以该 tab 最新任务标题作为列表 title。
+- [x] 将 recent 列表限制为仍存活的 shell session/tab，关闭 tab 后不再展示对应列表项。
+- [x] 将 recent 区域文案统一改为 `terminal list`。
+- [x] 将 tab 列表的 title/detail 基准改为“最近发起的任务”，而不是“最近更新的任务”。

@@ -50,6 +50,7 @@ enum TaskPhase: String {
 /// Python 事件总线快照接口返回的任务结构。
 struct RemoteTask: Decodable, Identifiable {
     let taskID: String
+    let createdAt: Double
     let sessionID: String
     let terminalApp: String
     let tty: String
@@ -68,6 +69,7 @@ struct RemoteTask: Decodable, Identifiable {
     /// 将 snake_case 的接口字段映射为 Swift 风格属性名。
     enum CodingKeys: String, CodingKey {
         case taskID = "task_id"
+        case createdAt = "created_at"
         case sessionID = "session_id"
         case terminalApp = "terminal_app"
         case tty
@@ -85,6 +87,11 @@ struct RemoteTask: Decodable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         taskID = try container.decode(String.self, forKey: .taskID)
+        if let createdAtValue = try container.decodeIfPresent(Double.self, forKey: .createdAt) {
+            createdAt = createdAtValue
+        } else {
+            createdAt = try container.decode(Double.self, forKey: .updatedAt)
+        }
         sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID) ?? ""
         terminalApp = try container.decodeIfPresent(String.self, forKey: .terminalApp) ?? ""
         tty = try container.decodeIfPresent(String.self, forKey: .tty) ?? ""
@@ -96,6 +103,30 @@ struct RemoteTask: Decodable, Identifiable {
         progress = try container.decodeIfPresent(Int.self, forKey: .progress)
         updatedAt = try container.decode(Double.self, forKey: .updatedAt)
         logs = try container.decodeIfPresent([String].self, forKey: .logs) ?? []
+    }
+}
+
+/// 将同一 shell session 近似聚合为一个 tab 级摘要。
+struct RemoteSessionSummary: Identifiable {
+    let id: String
+    let sessionID: String
+    let title: String
+    let detail: String
+    let phase: TaskPhase
+    let updatedAt: Double
+    let createdAt: Double
+    let latestTask: RemoteTask
+
+    /// 用最近一条任务构建 session 级摘要，作为列表项的单一数据源。
+    init(sessionKey: String, latestTask: RemoteTask) {
+        id = sessionKey
+        sessionID = latestTask.sessionID
+        title = latestTask.title
+        detail = latestTask.summary.isEmpty ? latestTask.phase.label : latestTask.summary
+        phase = latestTask.phase
+        updatedAt = latestTask.updatedAt
+        createdAt = latestTask.createdAt
+        self.latestTask = latestTask
     }
 }
 
@@ -191,7 +222,7 @@ final class StatusStore: ObservableObject {
     @Published var title = "term-home"
     @Published var summary = "Waiting for the local event bus."
     @Published var isExpanded = false
-    @Published var recentTasks: [RemoteTask] = []
+    @Published var recentSessions: [RemoteSessionSummary] = []
     @Published var currentTask: RemoteTask?
 
     var onLayoutChange: (() -> Void)?
@@ -200,6 +231,7 @@ final class StatusStore: ObservableObject {
     private var streamTask: Task<Void, Never>?
     private var currentTaskID: String?
     private var lastExpandedAt: Date?
+    private var allTasks: [RemoteTask] = []
 
     /// 启动初始快照拉取，并建立长连接 SSE 订阅。
     init() {
@@ -250,10 +282,10 @@ final class StatusStore: ObservableObject {
             return NSSize(width: 320, height: 36)
         }
 
-        let taskCount = min(recentTasks.count, 3)
-        let recentTasksHeight = CGFloat(taskCount) * 42
+        let taskCount = min(recentSessions.count, 3)
+        let recentSessionsHeight = CGFloat(taskCount) * 42
         let baseHeight: CGFloat = 138
-        let totalHeight = baseHeight + recentTasksHeight
+        let totalHeight = baseHeight + recentSessionsHeight
         return NSSize(width: 480, height: max(272, totalHeight))
     }
 
@@ -303,7 +335,8 @@ final class StatusStore: ObservableObject {
 
     /// 将总线返回的完整快照应用到当前界面状态。
     private func applySnapshot(_ snapshot: TasksSnapshot) {
-        recentTasks = Array(snapshot.tasks.prefix(3))
+        allTasks = snapshot.tasks
+        recentSessions = buildRecentSessions(from: snapshot.tasks)
         onLayoutChange?()
 
         if let current = preferredTask(from: snapshot.tasks) {
@@ -340,15 +373,55 @@ final class StatusStore: ObservableObject {
 
     /// 将增量任务更新合并到最近任务列表和当前任务头部状态。
     private func mergeTask(_ task: RemoteTask) {
-        var tasks = recentTasks.filter { $0.taskID != task.taskID }
+        var tasks = allTasks.filter { $0.taskID != task.taskID }
         tasks.insert(task, at: 0)
-        recentTasks = Array(tasks.sorted { $0.updatedAt > $1.updatedAt }.prefix(3))
+        allTasks = tasks.sorted { $0.updatedAt > $1.updatedAt }
+        recentSessions = buildRecentSessions(from: allTasks)
         onLayoutChange?()
 
-        if let current = preferredTask(from: recentTasks),
+        if let current = preferredTask(from: allTasks),
            current.taskID == task.taskID {
             applyCurrentTask(current)
         }
+    }
+
+    /// 将扁平任务列表按 shell session 聚合成最近 tab 摘要。
+    private func buildRecentSessions(from tasks: [RemoteTask]) -> [RemoteSessionSummary] {
+        var latestTaskBySession: [String: RemoteTask] = [:]
+
+        for task in tasks.sorted(by: {
+            if $0.createdAt == $1.createdAt {
+                return $0.updatedAt > $1.updatedAt
+            }
+            return $0.createdAt > $1.createdAt
+        }) {
+            guard !task.sessionID.isEmpty else { continue }
+            let sessionKey = sessionKey(for: task)
+            if latestTaskBySession[sessionKey] == nil {
+                latestTaskBySession[sessionKey] = task
+            }
+        }
+
+        return latestTaskBySession
+            .map { sessionKey, latestTask in
+                RemoteSessionSummary(sessionKey: sessionKey, latestTask: latestTask)
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt {
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .prefix(3)
+            .map { $0 }
+    }
+
+    /// 为带或不带 session_id 的任务生成稳定的分组键。
+    private func sessionKey(for task: RemoteTask) -> String {
+        if !task.sessionID.isEmpty {
+            return task.sessionID
+        }
+        return task.taskID
     }
 
     /// 从快照中挑出最值得放到顶部主位的任务，避免被合成动作长期污染。
@@ -391,7 +464,8 @@ final class StatusStore: ObservableObject {
     private func handleDisconnect() {
         currentTaskID = nil
         currentTask = nil
-        recentTasks = []
+        allTasks = []
+        recentSessions = []
         phase = .idle
         title = "term-home"
         summary = "Event bus offline at http://127.0.0.1:8765."

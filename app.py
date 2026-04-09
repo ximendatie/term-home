@@ -40,6 +40,7 @@ class TaskState:
     """单个任务的归一化运行时视图。"""
 
     task_id: str
+    created_at: float = field(default_factory=lambda: time.time())
     session_id: str = ""
     terminal_app: str = ""
     tty: str = ""

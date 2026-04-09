@@ -50,6 +50,8 @@
 - 增加通用命令包装器，先覆盖 `npm run dev` 这类“只需要最简单监听”的本地命令场景。
 - 增加统一命令入口，降低用户记忆多个 bridge 脚本名的成本。
 - 增加 shell 集成辅助脚本，提供显式 `th <command>` 入口，保持 shell 默认行为不被破坏。
+- 为 `codex` 增加单独的 `th-codex` shell 入口，避免交互式 TTY CLI 被通用命令包装器劫持。
+- 收敛 `th-codex` 的 shell 体验：无 prompt 时给出明确用法，正常调用时自动把当前 shell 的 session / terminal 元信息透传给 Codex bridge。
 
 ### Phase 7.5 — Runtime And Interaction Hardening
 - 修正原生壳层与本地总线之间的快照 / SSE 同步问题。
@@ -69,6 +71,9 @@
 - 继续增强最近任务行的 hover 高亮和箭头可见度，优先解决“看不到交互”的问题。
 - 修正最近任务行的事件竞争，确保箭头点击只执行 terminal 回跳，不会误触发展开 detail。
 - 对缺少 terminal 元信息的任务直接隐藏箭头，只对可回跳任务展示纯白高对比入口。
+- 将最近列表从“按任务”收敛为“按 shell session 近似 tab 聚合”，减少同一 tab 下多条命令挤占列表的问题。
+- 最近列表项的标题改为该 tab 最新发起任务的标题，避免旧长任务持续刷日志时把列表命名顶回去。
+- 将 `terminal list` 进一步收紧为“仅展示仍存活的 session/tab”，关闭 tab 后对应列表项应随会话清理一起消失。
 
 ## 后续阶段（V2 / Enhanced）
 

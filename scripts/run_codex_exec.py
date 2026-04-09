@@ -46,6 +46,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title", default="Codex CLI", help="Task title shown in the native shell.")
     parser.add_argument("--bus-url", default=DEFAULT_BUS_URL, help="term-home bus base URL.")
     parser.add_argument("--cd", default=".", help="Working directory for `codex exec`.")
+    parser.add_argument("--session-id", default=os.environ.get("TERM_HOME_SESSION_ID", ""))
+    parser.add_argument("--terminal-app", default=os.environ.get("TERM_HOME_TERMINAL_APP", os.environ.get("TERM_PROGRAM", "")))
+    parser.add_argument("--tty", default=os.environ.get("TERM_HOME_TTY", os.environ.get("TTY", "")))
     parser.add_argument("--model", help="Optional model passed to `codex exec`.")
     parser.add_argument(
         "--skip-git-repo-check",
@@ -185,6 +188,10 @@ def main() -> int:
         source="codex-cli",
         title=title,
         workdir=workdir,
+        session_id=args.session_id,
+        terminal_app=args.terminal_app,
+        tty=args.tty,
+        cwd=workdir,
     )
     return run_streaming_bridge(
         context=context,

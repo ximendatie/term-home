@@ -73,7 +73,7 @@ struct NotchShape: Shape {
 /// 原生顶部岛体主视图，负责收起态与展开态的统一骨架。
 struct CapsuleRootView: View {
     @ObservedObject var store: StatusStore
-    @State private var expandedRecentTaskID: String?
+    @State private var expandedRecentSessionID: String?
 
     /// 返回当前状态下的顶部内圆角半径。
     private var topCornerRadius: CGFloat {
@@ -310,42 +310,42 @@ struct CapsuleRootView: View {
         }
     }
 
-    /// 渲染最近任务列表，保持紧凑的展开态节奏。
+    /// 渲染按 session 聚合后的最近列表，避免同一 tab 下多条命令挤占空间。
     private var recentTasksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("recent")
+            Text("terminal list")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.74))
 
-            if store.recentTasks.isEmpty {
+            if store.recentSessions.isEmpty {
                 Text("No recent tasks.")
                     .font(.system(size: 13, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.45))
             } else {
                 VStack(spacing: 12) {
-                    ForEach(store.recentTasks.prefix(3)) { task in
-                        recentTaskRow(task)
+                    ForEach(store.recentSessions.prefix(3)) { session in
+                        recentTaskRow(session)
                     }
                 }
             }
         }
     }
 
-    /// 渲染单条最近任务，保证信息密度接近参考实现。
-    private func recentTaskRow(_ task: RemoteTask) -> some View {
+    /// 渲染单条最近 session，列表标题跟随该 tab 最近执行的任务。
+    private func recentTaskRow(_ session: RemoteSessionSummary) -> some View {
         RecentTaskCard(
-            task: task,
-            isExpanded: expandedRecentTaskID == task.id,
-            canJump: store.canOpenInTerminal(task),
+            session: session,
+            isExpanded: expandedRecentSessionID == session.id,
+            canJump: store.canOpenInTerminal(session.latestTask),
             onToggle: {
-                if expandedRecentTaskID == task.id {
-                    expandedRecentTaskID = nil
+                if expandedRecentSessionID == session.id {
+                    expandedRecentSessionID = nil
                 } else {
-                    expandedRecentTaskID = task.id
+                    expandedRecentSessionID = session.id
                 }
             },
             onJump: {
-                store.openInTerminal(task)
+                store.openInTerminal(session.latestTask)
             }
         )
     }
@@ -404,7 +404,7 @@ private struct TerminalJumpButton: View {
 
 /// 渲染最近任务卡片，整行负责展开 detail，箭头单独负责回跳 terminal。
 private struct RecentTaskCard: View {
-    let task: RemoteTask
+    let session: RemoteSessionSummary
     let isExpanded: Bool
     let canJump: Bool
     let onToggle: () -> Void
@@ -414,13 +414,13 @@ private struct RecentTaskCard: View {
 
     /// 创建一条同时具备详情展开和 terminal 回跳能力的最近任务卡片。
     init(
-        task: RemoteTask,
+        session: RemoteSessionSummary,
         isExpanded: Bool,
         canJump: Bool,
         onToggle: @escaping () -> Void,
         onJump: @escaping () -> Void
     ) {
-        self.task = task
+        self.session = session
         self.isExpanded = isExpanded
         self.canJump = canJump
         self.onToggle = onToggle
@@ -431,35 +431,35 @@ private struct RecentTaskCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Circle()
-                .fill(task.phase.color.opacity(0.9))
+                .fill(session.phase.color.opacity(0.9))
                 .frame(width: 9, height: 9)
                 .padding(.top, 7)
 
             Button(action: onToggle) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
+                    Text(session.title)
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.96))
                         .lineLimit(1)
 
-                    Text(task.summary.isEmpty ? task.phase.label : task.summary)
+                    Text(session.detail)
                         .font(.system(size: 13, weight: .regular, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.5))
                         .lineLimit(isExpanded ? 6 : 2)
 
                     if isExpanded {
                         VStack(alignment: .leading, spacing: 3) {
-                            if !task.phase.label.isEmpty {
-                                detailRow(label: "status", value: task.phase.label)
+                            if !session.phase.label.isEmpty {
+                                detailRow(label: "status", value: session.phase.label)
                             }
-                            if !task.source.isEmpty {
-                                detailRow(label: "source", value: task.source)
+                            if !session.latestTask.source.isEmpty {
+                                detailRow(label: "source", value: session.latestTask.source)
                             }
-                            if !task.cwd.isEmpty {
-                                detailRow(label: "cwd", value: task.cwd)
+                            if !session.latestTask.cwd.isEmpty {
+                                detailRow(label: "cwd", value: session.latestTask.cwd)
                             }
-                            if !task.tty.isEmpty {
-                                detailRow(label: "tty", value: task.tty)
+                            if !session.latestTask.tty.isEmpty {
+                                detailRow(label: "tty", value: session.latestTask.tty)
                             }
                         }
                         .padding(.top, 6)
