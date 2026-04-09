@@ -38,6 +38,72 @@ th-codex() {
     -- "$@"
 }
 
+# 默认将 ssh 纳入 term-home 监测，但保留原始 TTY 交互语义。
+ssh() {
+  local ssh_bin
+  ssh_bin="$(whence -p ssh)"
+  if [[ -z "$ssh_bin" ]]; then
+    echo "ssh binary not found" >&2
+    return 127
+  fi
+
+  local ssh_target="${1:-session}"
+  local task_id="ssh-${EPOCHSECONDS}-${RANDOM}"
+  local title="ssh ${ssh_target}"
+  local summary="Opening SSH session from ${PWD}"
+
+  python3 "${TERM_HOME_SCRIPTS_DIR}/term_home.py" emit \
+    --type task.started \
+    --task-id "${task_id}" \
+    --source ssh-cli \
+    --title "${title}" \
+    --summary "${summary}" \
+    --session-id "${TERM_HOME_SESSION_ID:-}" \
+    --terminal-app "${TERM_HOME_TERMINAL_APP:-}" \
+    --tty "${TERM_HOME_TTY:-}" \
+    --cwd "${PWD}" >/dev/null 2>&1
+
+  "${ssh_bin}" "$@"
+  local exit_code=$?
+
+  if [[ ${exit_code} -eq 0 ]]; then
+    python3 "${TERM_HOME_SCRIPTS_DIR}/term_home.py" emit \
+      --type task.completed \
+      --task-id "${task_id}" \
+      --source ssh-cli \
+      --title "${title}" \
+      --summary "SSH session closed." \
+      --session-id "${TERM_HOME_SESSION_ID:-}" \
+      --terminal-app "${TERM_HOME_TERMINAL_APP:-}" \
+      --tty "${TERM_HOME_TTY:-}" \
+      --cwd "${PWD}" >/dev/null 2>&1
+  elif [[ ${exit_code} -eq 130 ]]; then
+    python3 "${TERM_HOME_SCRIPTS_DIR}/term_home.py" emit \
+      --type task.cancelled \
+      --task-id "${task_id}" \
+      --source ssh-cli \
+      --title "${title}" \
+      --summary "SSH session interrupted by user." \
+      --session-id "${TERM_HOME_SESSION_ID:-}" \
+      --terminal-app "${TERM_HOME_TERMINAL_APP:-}" \
+      --tty "${TERM_HOME_TTY:-}" \
+      --cwd "${PWD}" >/dev/null 2>&1
+  else
+    python3 "${TERM_HOME_SCRIPTS_DIR}/term_home.py" emit \
+      --type task.failed \
+      --task-id "${task_id}" \
+      --source ssh-cli \
+      --title "${title}" \
+      --summary "SSH session exited with code ${exit_code}." \
+      --session-id "${TERM_HOME_SESSION_ID:-}" \
+      --terminal-app "${TERM_HOME_TERMINAL_APP:-}" \
+      --tty "${TERM_HOME_TTY:-}" \
+      --cwd "${PWD}" >/dev/null 2>&1
+  fi
+
+  return ${exit_code}
+}
+
 # 在 shell 正常退出时清理该 session 下的任务，避免关闭 tab 后残留历史。
 _term_home_close_session() {
   if [[ -z "${TERM_HOME_SESSION_ID:-}" || "${TERM_HOME_SESSION_OWNER_PID:-}" != "$$" ]]; then

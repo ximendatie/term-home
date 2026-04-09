@@ -52,6 +52,7 @@
 - 增加 shell 集成辅助脚本，提供显式 `th <command>` 入口，保持 shell 默认行为不被破坏。
 - 为 `codex` 增加单独的 `th-codex` shell 入口，避免交互式 TTY CLI 被通用命令包装器劫持。
 - 收敛 `th-codex` 的 shell 体验：无 prompt 时给出明确用法，正常调用时自动把当前 shell 的 session / terminal 元信息透传给 Codex bridge。
+- 将 `ssh` 纳入默认监测范围，但通过 shell 前后置事件上报而不是通用包装器，避免破坏交互式会话的 TTY 语义。
 
 ### Phase 7.5 — Runtime And Interaction Hardening
 - 修正原生壳层与本地总线之间的快照 / SSE 同步问题。

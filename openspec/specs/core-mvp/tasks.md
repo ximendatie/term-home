@@ -24,6 +24,7 @@
 - [x] 增加 zsh 快捷函数 `th`，支持显式前缀接入 term-home。
 - [x] 增加 `th-codex` 快捷函数，供需要直接占用 TTY 的 Codex 走专用 bridge。
 - [x] 让 `th-codex` 自动透传 session / terminal 元信息，并在缺少 prompt 时返回清晰用法提示。
+- [x] 将 `ssh` 默认纳入 term-home 监测，并通过 shell 包装补发 started / completed / failed / cancelled 事件。
 - [x] 为 `th` 增加 shell session id 注入，让同一 shell / tab 内的任务可归并到同一会话。
 - [x] 为 `th` 任务补充 `terminal_app` / `tty` / `cwd` 等元信息。
 - [x] 增加空状态、断连、非法事件兜底。
